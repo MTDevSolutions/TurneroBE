@@ -1,5 +1,6 @@
 using Application.Exceptions;
 using Application.Interfaces;
+using Application.UseCases.Whatsapp;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -57,4 +58,16 @@ public class TenantRepository(TurneroContext context) : ITenantRepository
 
     public async Task<bool> EmailUsuarioEnUsoAsync(string email, CancellationToken cancellationToken = default)
         => await context.Usuarios.IgnoreQueryFilters().AnyAsync(u => u.Email == email, cancellationToken);
+
+    public async Task<TenantWhatsappInfo?> WhatsappInfoAsync(int tenantId, CancellationToken cancellationToken = default)
+        => await context.Tenants.AsNoTracking()
+            .Where(t => t.Id == tenantId)
+            .Select(t => new TenantWhatsappInfo(t.Id, t.Nombre, t.Estado, t.WhatsappTelefonoId, t.TerminosVersionAceptada))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<List<TenantWhatsappInfo>> WhatsappInfoAsync(IReadOnlyCollection<int> tenantIds, CancellationToken cancellationToken = default)
+        => await context.Tenants.AsNoTracking()
+            .Where(t => tenantIds.Contains(t.Id))
+            .Select(t => new TenantWhatsappInfo(t.Id, t.Nombre, t.Estado, t.WhatsappTelefonoId, t.TerminosVersionAceptada))
+            .ToListAsync(cancellationToken);
 }

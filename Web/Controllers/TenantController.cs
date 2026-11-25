@@ -50,4 +50,14 @@ public class TenantController(ITenantAdminService tenantAdminService) : Controll
         return Ok(BaseResponse<PagoSuscripcionDto>.Ok(pago, "Cobro registrado.", true));
     }
 
+
+    [HttpPut("{id:int}/whatsapp")]
+    [SwaggerOperation(Summary = "Vincular WhatsApp",
+        Description = "Vincula la cuenta a un teléfono de Wabix Gateway (null = desvincular). En el gateway, la Etiqueta del teléfono tiene que ser el id de la cuenta. 404 si el teléfono no existe, 409 si ya es de otra cuenta.")]
+    public async Task<ActionResult<BaseResponse<TenantDto>>> VincularWhatsapp(int id, [FromBody] TenantWhatsappDto dto, CancellationToken cancellationToken)
+    {
+        var tenant = await tenantAdminService.VincularWhatsappAsync(id, dto.TelefonoId, cancellationToken);
+        var mensaje = dto.TelefonoId is null ? "WhatsApp desvinculado." : "WhatsApp vinculado.";
+        return Ok(BaseResponse<TenantDto>.Ok(tenant, mensaje, true));
+    }
 }

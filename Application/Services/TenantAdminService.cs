@@ -14,6 +14,7 @@ public class TenantAdminService(
     IPasswordService passwordService,
     ISecurityContextService currentUser,
     ITenantEstadoService tenantEstadoService,
+    IWhatsappGateway gateway,
     IUnitOfWork uow) : ITenantAdminService
 {
     public async Task<TenantDto> CrearAsync(TenantCrearDto dto, CancellationToken cancellationToken = default)
@@ -116,6 +117,32 @@ public class TenantAdminService(
 
         // Sin esto, las sesiones abiertas siguen entrando hasta que venza el caché.
         tenantEstadoService.InvalidarCache(id);
+    }
+
+    public async Task<TenantDto> VincularWhatsappAsync(int id, int? telefonoId, CancellationToken cancellationToken = default)
+    {
+        var tenant = await repository.GetByIdAsync(id, cancellationToken)
+            ?? throw AppException.RegistroNoExiste();
+
+        // Se valida contra el gateway antes de guardar: un id mal tipeado dejaría a la cuenta
+        // mandando avisos que nunca salen, o peor, por el número de otro cliente del gateway.
+        if (telefonoId is int telefono)
+        {
+            if (!gateway.Configurado)
+                throw AppException.Conflicto("El gateway de WhatsApp no está configurado en este entorno.");
+
+            var existe = await gateway.ExisteTelefonoAsync(telefono, cancellationToken);
+            if (existe is null)
+                throw AppException.ServicioNoDisponible("No se pudo contactar al gateway de WhatsApp. Volvé a intentar.");
+            if (existe == false)
+                throw AppException.RegistroNoExiste();
+        }
+
+        tenant.WhatsappTelefonoId = telefonoId;
+        await uow.GuardarTraduciendoDuplicadoAsync(CteIndices.TenantWhatsappTelefono,
+            "Ese teléfono ya está vinculado a otra cuenta.", cancellationToken);
+
+        return Mapear(tenant);
     }
 
     private static TenantDto Mapear(Tenant t) => new()

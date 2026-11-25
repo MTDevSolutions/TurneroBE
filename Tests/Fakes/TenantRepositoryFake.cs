@@ -1,4 +1,5 @@
 using Application.Interfaces;
+using Application.UseCases.Whatsapp;
 using Domain.Entities;
 
 namespace Tests.Fakes;
@@ -39,4 +40,13 @@ public class TenantRepositoryFake : ITenantRepository
 
     public Task<bool> EmailUsuarioEnUsoAsync(string email, CancellationToken cancellationToken = default)
         => Task.FromResult(EmailsEnUso.Contains(email));
+
+    public Task<TenantWhatsappInfo?> WhatsappInfoAsync(int tenantId, CancellationToken cancellationToken = default)
+        => Task.FromResult(_tenants.Where(t => t.Id == tenantId).Select(Info).FirstOrDefault());
+
+    public Task<List<TenantWhatsappInfo>> WhatsappInfoAsync(IReadOnlyCollection<int> tenantIds, CancellationToken cancellationToken = default)
+        => Task.FromResult(_tenants.Where(t => tenantIds.Contains(t.Id)).Select(Info).ToList());
+
+    private static TenantWhatsappInfo Info(Tenant t)
+        => new(t.Id, t.Nombre, t.Estado, t.WhatsappTelefonoId, t.TerminosVersionAceptada);
 }

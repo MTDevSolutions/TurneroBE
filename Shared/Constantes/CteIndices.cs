@@ -19,4 +19,7 @@ public static class CteIndices
 
     /// <summary>Exclusion constraint: dos turnos vivos de la misma cuenta no se superponen.</summary>
     public const string TurnoSinSolapamiento = "EX_Turnos_SinSolapamiento";
+
+    /// <summary>Único: el gateway reintenta el webhook, y una misma respuesta no se procesa dos veces.</summary>
+    public const string MensajeEntranteGateway = "UX_MensajesEntrantes_GatewayMensajeId";
 }

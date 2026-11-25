@@ -31,4 +31,21 @@ public class TurnoRepository(TurneroContext context) : ITurnoRepository
 
     public void Agregar(Turno turno)
         => context.Turnos.Add(turno); // TenantId lo completa SaveChanges
+
+    // Todas las cuentas (sin query filter): el worker no tiene cuenta en contexto. La ventana sale
+    // de la configuración de cada cuenta: Inicio - HorasRecordatorio <= ahora < Inicio.
+    public async Task<List<Turno>> ListarParaRecordatorioAsync(DateTime ahoraUtc, int maximo, CancellationToken cancellationToken = default)
+        => await (
+                from t in context.Turnos.IgnoreQueryFilters().Include(t => t.Paciente).Include(t => t.Sucursal)
+                join c in context.Configuraciones.IgnoreQueryFilters() on t.TenantId equals c.TenantId
+                where c.AvisosWhatsappActivos
+                    && c.HorasRecordatorio > 0
+                    && t.RecordatorioEncoladoEn == null
+                    && (t.Estado == CteEstadosTurno.Pendiente || t.Estado == CteEstadosTurno.Confirmado)
+                    && t.Inicio > ahoraUtc
+                    && t.Inicio.AddHours(-c.HorasRecordatorio) <= ahoraUtc
+                orderby t.Inicio
+                select t)
+            .Take(maximo)
+            .ToListAsync(cancellationToken);
 }

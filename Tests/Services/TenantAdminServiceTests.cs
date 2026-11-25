@@ -19,7 +19,7 @@ public class TenantAdminServiceTests
     private readonly UnitOfWorkFake _uow = new();
 
     private TenantAdminService Servicio() => new(
-        _repo, new PasswordServiceFake(), new SecurityContextServiceFake(id: 99), _estado, _uow);
+        _repo, new PasswordServiceFake(), new SecurityContextServiceFake(id: 99), _estado, new WhatsappGatewayFake(), _uow);
 
     private static TenantCrearDto Alta(string especialidad = "psicologia", string celular = "11 2345-6789") => new()
     {

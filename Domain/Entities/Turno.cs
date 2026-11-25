@@ -32,6 +32,10 @@ public class Turno : ITenantEntity
 
     public DateTime FechaAlta { get; set; }
 
+    /// <summary>Cuándo se encoló el recordatorio (o el aviso, si ya caía dentro de la ventana del
+    /// recordatorio). Null = falta mandarlo. Mover el turno lo vuelve a null.</summary>
+    public DateTime? RecordatorioEncoladoEn { get; set; }
+
     public Paciente Paciente { get; set; } = null!;
     public Sucursal Sucursal { get; set; } = null!;
 }

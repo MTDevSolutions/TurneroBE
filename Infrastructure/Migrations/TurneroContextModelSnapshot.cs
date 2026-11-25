@@ -53,6 +53,130 @@ namespace Infrastructure.Migrations
                     b.ToTable("Configuraciones");
                 });
 
+            modelBuilder.Entity("Domain.Entities.MensajeEntrante", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("GatewayMensajeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Numero")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("PacienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ProcesadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("RecibidoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Resultado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("TurnoId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GatewayMensajeId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MensajesEntrantes_GatewayMensajeId");
+
+                    b.HasIndex("PacienteId");
+
+                    b.HasIndex("TurnoId");
+
+                    b.HasIndex("TenantId", "TurnoId")
+                        .HasDatabaseName("IX_MensajesEntrantes_TenantId_TurnoId");
+
+                    b.ToTable("MensajesEntrantes");
+                });
+
+            modelBuilder.Entity("Domain.Entities.MensajeWhatsapp", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreadoEn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Destino")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("EnviadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("GatewayMessageId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Intentos")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ProximoIntentoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("TurnoId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UltimoError")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TurnoId");
+
+                    b.HasIndex("Estado", "ProximoIntentoEn")
+                        .HasDatabaseName("IX_MensajesWhatsapp_Estado_ProximoIntentoEn");
+
+                    b.HasIndex("TenantId", "TurnoId")
+                        .HasDatabaseName("IX_MensajesWhatsapp_TenantId_TurnoId");
+
+                    b.ToTable("MensajesWhatsapp");
+                });
+
             modelBuilder.Entity("Domain.Entities.Paciente", b =>
                 {
                     b.Property<int>("Id")
@@ -316,6 +440,9 @@ namespace Infrastructure.Migrations
                     b.Property<int>("PacienteId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("RecordatorioEncoladoEn")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("SucursalId")
                         .HasColumnType("integer");
 
@@ -407,6 +534,46 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK_Configuraciones_Tenants");
+                });
+
+            modelBuilder.Entity("Domain.Entities.MensajeEntrante", b =>
+                {
+                    b.HasOne("Domain.Entities.Paciente", null)
+                        .WithMany()
+                        .HasForeignKey("PacienteId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_MensajesEntrantes_Pacientes");
+
+                    b.HasOne("Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_MensajesEntrantes_Tenants");
+
+                    b.HasOne("Domain.Entities.Turno", null)
+                        .WithMany()
+                        .HasForeignKey("TurnoId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_MensajesEntrantes_Turnos");
+                });
+
+            modelBuilder.Entity("Domain.Entities.MensajeWhatsapp", b =>
+                {
+                    b.HasOne("Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_MensajesWhatsapp_Tenants");
+
+                    b.HasOne("Domain.Entities.Turno", "Turno")
+                        .WithMany()
+                        .HasForeignKey("TurnoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("FK_MensajesWhatsapp_Turnos");
+
+                    b.Navigation("Turno");
                 });
 
             modelBuilder.Entity("Domain.Entities.Paciente", b =>

@@ -2,6 +2,7 @@ using Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.DTOs.Turno;
+using Shared.DTOs.Whatsapp;
 using Shared.Responses;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -11,7 +12,7 @@ namespace Web.Controllers;
 [Route("api/turnos")]
 [Authorize(Policy = "Tenant")]
 [Tags("Turnos")]
-public class TurnoController(ITurnoService turnoService) : ControllerBase
+public class TurnoController(ITurnoService turnoService, IHistorialWhatsappService historialService) : ControllerBase
 {
     [HttpGet]
     [SwaggerOperation(Summary = "Turnos de un rango",
@@ -51,4 +52,10 @@ public class TurnoController(ITurnoService turnoService) : ControllerBase
         var turno = await turnoService.CambiarEstadoAsync(id, dto, cancellationToken);
         return Ok(BaseResponse<TurnoDto>.Ok(turno, "Turno actualizado.", true));
     }
+
+    [HttpGet("{id:int}/mensajes")]
+    [SwaggerOperation(Summary = "Mensajes de WhatsApp del turno",
+        Description = "Avisos enviados (con su estado) y respuestas del paciente, en orden.")]
+    public async Task<ActionResult<BaseResponse<List<MensajeWhatsappDto>>>> Mensajes(int id, CancellationToken cancellationToken)
+        => Ok(BaseResponse<List<MensajeWhatsappDto>>.Ok(await historialService.ListarPorTurnoAsync(id, cancellationToken)));
 }

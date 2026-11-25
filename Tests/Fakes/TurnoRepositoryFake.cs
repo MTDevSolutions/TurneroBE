@@ -9,6 +9,9 @@ public class TurnoRepositoryFake : ITurnoRepository
 {
     public List<Turno> Turnos { get; } = [];
 
+    /// <summary>Configuración de cada cuenta, para la ventana del recordatorio.</summary>
+    public Dictionary<int, Configuracion> Configuraciones { get; } = [];
+
     public Task<List<Turno>> ListarRangoAsync(DateTime desdeUtc, DateTime hastaUtc, CancellationToken cancellationToken = default)
         => Task.FromResult(Turnos.Where(t => t.Inicio < hastaUtc && t.Fin > desdeUtc).OrderBy(t => t.Inicio).ToList());
 
@@ -24,4 +27,17 @@ public class TurnoRepositoryFake : ITurnoRepository
         turno.Id = Turnos.Count + 1;
         Turnos.Add(turno);
     }
+
+    public Task<List<Turno>> ListarParaRecordatorioAsync(DateTime ahoraUtc, int maximo, CancellationToken cancellationToken = default)
+        => Task.FromResult(Turnos
+            .Where(t => Configuraciones.TryGetValue(t.TenantId, out var c)
+                && c.AvisosWhatsappActivos
+                && c.HorasRecordatorio > 0
+                && t.RecordatorioEncoladoEn == null
+                && (t.Estado == CteEstadosTurno.Pendiente || t.Estado == CteEstadosTurno.Confirmado)
+                && t.Inicio > ahoraUtc
+                && t.Inicio.AddHours(-c.HorasRecordatorio) <= ahoraUtc)
+            .OrderBy(t => t.Inicio)
+            .Take(maximo)
+            .ToList());
 }

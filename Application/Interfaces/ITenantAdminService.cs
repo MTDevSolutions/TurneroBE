@@ -10,4 +10,7 @@ public interface ITenantAdminService
     Task SuspenderAsync(int id, CancellationToken cancellationToken = default);
     Task ReactivarAsync(int id, CancellationToken cancellationToken = default);
     Task<PagoSuscripcionDto> RegistrarPagoAsync(int id, RegistrarPagoDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>Vincula la cuenta a un teléfono de Wabix Gateway (null = desvincular). Valida que exista.</summary>
+    Task<TenantDto> VincularWhatsappAsync(int id, int? telefonoId, CancellationToken cancellationToken = default);
 }

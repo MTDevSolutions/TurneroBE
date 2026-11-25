@@ -66,7 +66,7 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
   `PagoSuscripcion`, `Superadmin`.
 - Entidades de dominio: implementan `ITenantEntity` → global query filter por `TenantId` y
   autocompletado en los inserts. Hoy: `Sucursal` (= consultorio), `Usuario`, `Configuracion`,
-  `Paciente`, `Turno`.
+  `Paciente`, `Turno`, `MensajeWhatsapp`, `MensajeEntrante`.
 - JWT de la cuenta lleva `tenant_id` + `rol`; el del superadmin no lleva `tenant_id`
   (`tipo_acceso=plataforma`). Policies `Tenant` y `Superadmin`.
 - `TenantSuspendidoMiddleware` → 403 `TENANT_SUSPENDIDO`.
@@ -82,13 +82,25 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
   (`MaquinaEstadosTurno`). Cancelado, atendido y ausente son finales.
 - Dos turnos vivos (no cancelados) no se superponen: chequeo en `TurnoService` + exclusion
   constraint `EX_Turnos_SinSolapamiento` (btree_gist, rango `[Inicio, Fin)`), que el UnitOfWork
-  traduce a 409. Mover un turno de horario lo vuelve a `pendiente`.
+  traduce a 409. Mover un turno de horario (cambiar el inicio) lo vuelve a `pendiente`; estirarlo no.
 
 ## 6. WhatsApp
 
-- Se usa WabixGatewayBE sin cambios: salida con `POST /api/mensajes/texto` (outbox + worker, como
-  CellFix), entrada por webhook con `X-Webhook-Secret`. La `Etiqueta` del teléfono lleva el id del tenant.
+- Se usa WabixGatewayBE sin cambios. Config en `WhatsappGateway` (`BaseUrl`, `ApiKey`, `WebhookSecret`).
+  El teléfono de cada cuenta se vincula desde la plataforma (`PUT /api/tenants/{id}/whatsapp`) y en el
+  gateway su `Etiqueta` es el **id del tenant** y su webhook apunta a `POST /api/webhooks/whatsapp`.
+- **Salida (outbox):** `AvisoTurnoService` encola en `MensajesWhatsapp` (aviso al agendar, cambio de
+  horario, cancelación del profesional). `RecordatoriosWorker` (cada minuto) encola el recordatorio a
+  `HorasRecordatorio` del inicio (`Turno.RecordatorioEncoladoEn` evita duplicarlo).
+  `EnvioWhatsappWorker` (cada 5 s) reclama con `FOR UPDATE SKIP LOCKED` + lease, reintenta con backoff
+  y descarta si la cuenta está suspendida, sin términos vigentes o sin teléfono. Textos en `TextosWhatsapp`.
+- **Entrada:** el webhook valida `X-Webhook-Secret`, deduplica por id del gateway
+  (`UX_MensajesEntrantes_GatewayMensajeId`) y guarda todo en `MensajesEntrantes`. Se aplica al próximo
+  turno vivo del paciente (por celular): Sí → confirmado; No → cancelado (`CanceladoPor = paciente`),
+  se libera el horario y se avisa a los celulares de los admins. Otro texto no se contesta (`InterpreteRespuesta`).
+- Webhook y workers corren sin tenant en el request: usan `IgnoreQueryFilters()` con `TenantId` explícito.
 - Teléfonos se guardan normalizados para Argentina con `TelefonoWhatsappHelper` (549 + área + número).
+- Horarios de los textos en hora de Argentina (`HoraArgentina`).
 
 ## 7. Comandos
 

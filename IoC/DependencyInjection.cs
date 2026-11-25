@@ -8,6 +8,8 @@ using Infrastructure.Data;
 using Infrastructure.Security;
 using Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Shared.Settings;
 
 namespace IoC;
 
@@ -64,6 +66,23 @@ public static class DependencyInjection
         // Multi-tenant: estado de la cuenta (suspensión y términos de uso)
         services.AddScoped<ITenantEstadoService, TenantEstadoService>();
         services.AddScoped<ITerminosService, TerminosService>();
+
+        // WhatsApp (Wabix Gateway): config desde la sección "WhatsappGateway"; timeout por config.
+        services.AddOptions<WhatsappGatewaySettings>().BindConfiguration(WhatsappGatewaySettings.Seccion);
+        services.AddHttpClient<IWhatsappGateway, WhatsappGatewayClient>()
+            .ConfigureHttpClient((sp, client) => client.Timeout = TimeSpan.FromSeconds(
+                Math.Max(1, sp.GetRequiredService<IOptions<WhatsappGatewaySettings>>().Value.TimeoutSegundos)));
+        services.AddScoped<IMensajeWhatsappRepository, MensajeWhatsappRepository>();
+        services.AddScoped<IMensajeEntranteRepository, MensajeEntranteRepository>();
+        services.AddScoped<IRespuestaWhatsappRepository, RespuestaWhatsappRepository>();
+        services.AddScoped<IAvisoTurnoService, AvisoTurnoService>();
+        services.AddScoped<IRespuestaWhatsappService, RespuestaWhatsappService>();
+        services.AddScoped<IWhatsappConexionService, WhatsappConexionService>();
+        services.AddScoped<IHistorialWhatsappService, HistorialWhatsappService>();
+        services.AddScoped<ProcesadorEnvioWhatsapp>();
+        services.AddScoped<ProcesadorRecordatorios>();
+        services.AddHostedService<EnvioWhatsappWorker>();   // outbox: manda los pendientes al gateway
+        services.AddHostedService<RecordatoriosWorker>();   // encola los recordatorios que tocan
 
         return services;
     }

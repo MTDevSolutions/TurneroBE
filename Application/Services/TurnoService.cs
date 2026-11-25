@@ -9,14 +9,16 @@ namespace Application.Services;
 
 /// <summary>
 /// Agenda de la cuenta. Reglas: no se cargan turnos en el pasado, dos turnos vivos no se
-/// superponen, y mover un turno de horario lo vuelve a "pendiente" (la confirmación era para
-/// el horario anterior).
+/// superponen, y cambiar la hora de inicio de un turno lo vuelve a "pendiente" (la confirmación era para
+/// el horario anterior). Cada alta, cambio de horario o cancelación encola el aviso al paciente
+/// en la misma transacción.
 /// </summary>
 public class TurnoService(
     ITurnoRepository turnos,
     IPacienteRepository pacientes,
     ISucursalRepository sucursales,
     IConfiguracionRepository configuracion,
+    IAvisoTurnoService avisos,
     IUnitOfWork uow,
     TimeProvider reloj) : ITurnoService
 {
@@ -52,6 +54,7 @@ public class TurnoService(
 
         await AplicarAsync(turno, dto, cancellationToken);
         turnos.Agregar(turno);
+        await avisos.EncolarAsync(turno, CteMensajesWhatsapp.TipoAviso, cancellationToken);
 
         await uow.GuardarTraduciendoDuplicadoAsync(CteIndices.TurnoSinSolapamiento, MensajeSolapamiento, cancellationToken);
         return Mapear(turno);
@@ -63,11 +66,19 @@ public class TurnoService(
         if (!MaquinaEstadosTurno.EsEditable(turno.Estado))
             throw AppException.Conflicto($"Un turno {turno.Estado} no se puede modificar.");
 
-        var (inicioAnterior, finAnterior) = (turno.Inicio, turno.Fin);
+        var inicioAnterior = turno.Inicio;
         await AplicarAsync(turno, dto, cancellationToken);
 
-        if (turno.Inicio != inicioAnterior || turno.Fin != finAnterior)
+        // Si cambia la hora de inicio, la confirmación era para el horario anterior: vuelve a
+        // pendiente y se le pide al paciente que confirme de nuevo. Solo estirar o acortar el
+        // turno no le cambia nada al paciente.
+        if (turno.Inicio != inicioAnterior)
+        {
             turno.Estado = CteEstadosTurno.Pendiente;
+            // El recordatorio era del horario anterior: con el nuevo vuelve a tocar.
+            turno.RecordatorioEncoladoEn = null;
+            await avisos.EncolarAsync(turno, CteMensajesWhatsapp.TipoReprogramado, cancellationToken);
+        }
 
         await uow.GuardarTraduciendoDuplicadoAsync(CteIndices.TurnoSinSolapamiento, MensajeSolapamiento, cancellationToken);
         return Mapear(turno);
@@ -94,6 +105,7 @@ public class TurnoService(
         {
             turno.CanceladoPor = CteEstadosTurno.CanceladoPorProfesional;
             turno.MotivoCancelacion = string.IsNullOrWhiteSpace(dto.Motivo) ? null : dto.Motivo.Trim();
+            await avisos.EncolarAsync(turno, CteMensajesWhatsapp.TipoCancelado, cancellationToken);
         }
 
         await uow.GuardarAsync(cancellationToken);

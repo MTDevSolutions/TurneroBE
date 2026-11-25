@@ -15,4 +15,11 @@ public interface ITurnoRepository
     Task<bool> HaySolapamientoAsync(DateTime inicioUtc, DateTime finUtc, int? excluirId, CancellationToken cancellationToken = default);
 
     void Agregar(Turno turno);
+
+    /// <summary>
+    /// Turnos de TODAS las cuentas a los que les toca el recordatorio: vivos, que no empezaron, sin
+    /// recordatorio encolado y que ya entraron en la ventana de horas de su cuenta (con los avisos
+    /// activos). Trackeados, con paciente y consultorio. Lo usa el worker de recordatorios.
+    /// </summary>
+    Task<List<Turno>> ListarParaRecordatorioAsync(DateTime ahoraUtc, int maximo, CancellationToken cancellationToken = default);
 }

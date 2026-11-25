@@ -22,6 +22,7 @@ public class TurnoServiceTests
     private readonly SucursalRepositoryFake _sucursales = new();
     private readonly ConfiguracionRepositoryFake _config = new(new Configuracion { DuracionTurnoMinutos = 45 });
     private readonly UnitOfWorkFake _uow = new();
+    private readonly AvisoTurnoServiceFake _avisos = new();
     private readonly RelojFake _reloj = new(Ahora);
     private readonly Paciente _ana;
     private readonly Sucursal _palermo;
@@ -32,7 +33,7 @@ public class TurnoServiceTests
         _palermo = _sucursales.Agregar("Palermo");
     }
 
-    private TurnoService Servicio() => new(_turnos, _pacientes, _sucursales, _config, _uow, _reloj);
+    private TurnoService Servicio() => new(_turnos, _pacientes, _sucursales, _config, _avisos, _uow, _reloj);
 
     private TurnoGuardarDto Dto(int hora, int minuto = 0, int? duracion = null, int? sucursalId = null, int dia = 2) => new()
     {
@@ -257,5 +258,52 @@ public class TurnoServiceTests
 
         var unico = Assert.Single(semana);
         Assert.Equal(CteEstadosTurno.Cancelado, unico.Estado);
+    }
+
+    // --- Avisos por WhatsApp que dispara la agenda ---
+
+    [Fact]
+    public async Task Crear_encola_el_aviso_al_paciente()
+    {
+        await Servicio().CrearAsync(Dto(15));
+
+        var (turno, tipo) = Assert.Single(_avisos.Encolados);
+        Assert.Equal(CteMensajesWhatsapp.TipoAviso, tipo);
+        Assert.Equal(_ana.Id, turno.PacienteId);
+    }
+
+    [Fact]
+    public async Task Mover_la_hora_avisa_el_cambio_y_rearma_el_recordatorio()
+    {
+        var creado = await Servicio().CrearAsync(Dto(15));
+        _turnos.Turnos.Single().RecordatorioEncoladoEn = Ahora.UtcDateTime;
+
+        await Servicio().ReprogramarAsync(creado.Id, Dto(17));
+
+        Assert.Equal(CteMensajesWhatsapp.TipoReprogramado, _avisos.Encolados.Last().Tipo);
+        Assert.Null(_turnos.Turnos.Single().RecordatorioEncoladoEn);
+    }
+
+    [Fact]
+    public async Task Estirar_un_turno_confirmado_no_lo_desconfirma_ni_avisa()
+    {
+        var creado = await Servicio().CrearAsync(Dto(15, duracion: 45));
+        await Servicio().CambiarEstadoAsync(creado.Id, new TurnoEstadoDto { Estado = "confirmado" });
+
+        var estirado = await Servicio().ReprogramarAsync(creado.Id, Dto(15, duracion: 60));
+
+        Assert.Equal(CteEstadosTurno.Confirmado, estirado.Estado);
+        Assert.Single(_avisos.Encolados); // solo el del alta
+    }
+
+    [Fact]
+    public async Task Cancelar_avisa_al_paciente_y_confirmar_no()
+    {
+        var creado = await Servicio().CrearAsync(Dto(15));
+        await Servicio().CambiarEstadoAsync(creado.Id, new TurnoEstadoDto { Estado = "confirmado" });
+        await Servicio().CambiarEstadoAsync(creado.Id, new TurnoEstadoDto { Estado = "cancelado" });
+
+        Assert.Equal([CteMensajesWhatsapp.TipoAviso, CteMensajesWhatsapp.TipoCancelado],
+            _avisos.Encolados.Select(a => a.Tipo).ToArray());
     }
 }

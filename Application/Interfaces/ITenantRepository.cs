@@ -1,3 +1,4 @@
+using Application.UseCases.Whatsapp;
 using Domain.Entities;
 
 namespace Application.Interfaces;
@@ -21,4 +22,10 @@ public interface ITenantRepository
 
     /// <summary>True si el email ya está usado por algún usuario (chequeo GLOBAL, sin filtro de tenant).</summary>
     Task<bool> EmailUsuarioEnUsoAsync(string email, CancellationToken cancellationToken = default);
+
+    /// <summary>Nombre, estado, teléfono y términos de la cuenta; null si no existe.</summary>
+    Task<TenantWhatsappInfo?> WhatsappInfoAsync(int tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>Lo mismo para varias cuentas (lo usan los workers).</summary>
+    Task<List<TenantWhatsappInfo>> WhatsappInfoAsync(IReadOnlyCollection<int> tenantIds, CancellationToken cancellationToken = default);
 }
