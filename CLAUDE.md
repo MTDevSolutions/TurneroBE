@@ -1,0 +1,106 @@
+# CLAUDE.md — TurneroBE (.NET + EF Core + PostgreSQL)
+
+Backend del SaaS multi-tenant de turnos para profesionales de la salud independientes
+(fonoaudiólogas, psicólogas, médicos generales) en Argentina. **Este repo es solo el backend.**
+
+| Repo | Qué contiene |
+|---|---|
+| `TurneroBE` (este) | Backend .NET, Clean Architecture 6 capas |
+| `TurneroFE` | Frontend Angular 20 + PrimeNG |
+| `BaseTenant` | Starter multi-tenant del que parte este repo |
+| `WabixGatewayBE` | Gateway de WhatsApp (Baileys) que usa el turnero para avisos y respuestas |
+
+> **Copiar la base de BaseTenant y las mejoras de CellFixBE.** Antes de crear cualquier capa,
+> entidad, servicio o controller, mirar el equivalente ahí y replicar el patrón.
+
+---
+
+## 1. Producto (MVP)
+
+- El profesional usa un calendario y una lista de pacientes, y carga los turnos.
+- El paciente solo interactúa por WhatsApp: recibe aviso y recordatorio y responde Sí (confirma)
+  o No (cancela, se libera el horario y se avisa al profesional en su celular personal).
+- Cada profesional tiene un número de WhatsApp propio, vinculado por QR en el gateway.
+- Canal no oficial (Baileys): la cuenta acepta términos de uso explícitos antes de operar.
+- Fuera del MVP: reservar o reprogramar por chat, historia clínica, API oficial de Meta.
+
+**Dos planos de acceso** (igual que BaseTenant):
+
+| Plano | Quién | Qué hace |
+|---|---|---|
+| Plataforma | Superadmin (dueño del SaaS) | Crea cuentas, registra cobros, suspende/reactiva |
+| Tenant | El profesional (rol `admin`) | Opera su agenda dentro de su cuenta |
+
+---
+
+## 2. Arquitectura (6 capas, Clean Architecture)
+
+```
+/
+├── Turnero.sln
+├── Domain/            ← Entities (solo POCOs, sin dependencias)
+├── Application/       ← UseCases, Services, Interfaces, Helpers, Exceptions
+├── Infrastructure/    ← Data (DbContext + Repositories), Migrations, Security, Services
+├── Shared/            ← Responses, DTOs, Constantes (Cte*)
+├── IoC/               ← DependencyInjection.cs (todos los services.AddX())
+├── Web/               ← Controllers, Middleware, Helpers, Program.cs, appsettings.json
+└── Tests/             ← xUnit (unitarios de servicios, fakes in-memory)
+```
+
+**Web referencia solo a IoC**, no a Infrastructure directamente.
+
+## 3. Patrones
+
+- **Response wrapper:** toda respuesta usa `BaseResponse<T>` (`Success`, `Message`, `Data`, `ToastShow`).
+- **Errores:** `AppException` (factories estáticas) → `ExceptionHandlingMiddleware`. 400 validación,
+  401 auth, 403 suspendida / términos pendientes / sin permiso, 404, 409, 503 DB caída.
+- **Auth:** JWT HS256 (`JwtSettings`), BCrypt, token también por cookie `access_token`.
+- **CSRF:** double-submit (`X-CSRF-Token` contra la cookie `csrf_token`), solo en requests que mutan
+  autenticados por cookie y sin header `Authorization`.
+- **Repository + Service + UnitOfWork:** los repos no persisten; el servicio commitea con `IUnitOfWork`.
+- **Naming en español.** PascalCase en tablas/columnas. Estados y roles como texto manejado en C#.
+
+## 4. Multi-tenant
+
+- Tenant = la cuenta del profesional. Entidades de plataforma (sin filtro): `Tenant`,
+  `PagoSuscripcion`, `Superadmin`.
+- Entidades de dominio: implementan `ITenantEntity` → global query filter por `TenantId` y
+  autocompletado en los inserts. Hoy: `Sucursal` (= consultorio), `Usuario`, `Configuracion`.
+- JWT de la cuenta lleva `tenant_id` + `rol`; el del superadmin no lleva `tenant_id`
+  (`tipo_acceso=plataforma`). Policies `Tenant` y `Superadmin`.
+- `TenantSuspendidoMiddleware` → 403 `TENANT_SUSPENDIDO`.
+- `TerminosPendientesMiddleware` → 403 `TERMINOS_PENDIENTES` si la cuenta no aceptó
+  `CteTerminos.VersionVigente`. Libres: `/api/auth/*` y `/api/terminos/*`. Cambiar el texto de los
+  términos = subir la versión (todas las cuentas vuelven a aceptar).
+
+## 5. WhatsApp
+
+- Se usa WabixGatewayBE sin cambios: salida con `POST /api/mensajes/texto` (outbox + worker, como
+  CellFix), entrada por webhook con `X-Webhook-Secret`. La `Etiqueta` del teléfono lleva el id del tenant.
+- Teléfonos se guardan normalizados para Argentina con `TelefonoWhatsappHelper` (549 + área + número).
+
+## 6. Comandos
+
+```bash
+docker compose up -d                       # Postgres local en :5436
+dotnet build Turnero.sln
+dotnet run --project Web                   # http://localhost:53714/swagger
+dotnet test Tests/Tests.csproj
+dotnet ef migrations add <Nombre> --project Infrastructure --startup-project Web
+dotnet ef database update --project Infrastructure --startup-project Web
+```
+
+Seed de Development: superadmin `admin@turnero.local` / `Admin1234!`; cuentas demo
+`psico@demo.local` (términos aceptados) y `fono@demo.local` (pendientes), password `Demo1234!`.
+
+## 7. Ramas
+
+`main` = producción, `dev` = test. Las features salen siempre desde `dev` y el PR va contra `dev`.
+
+## 8. Reglas de interacción con Claude
+
+1. Antes de escribir/modificar código: explicar qué se va a hacer y por qué, y esperar
+   confirmación explícita ("dale").
+2. Revisar siempre la migración generada antes de aplicarla (que un rename no salga como drop + create).
+3. Tests siempre en `Tests/` (xUnit), unitarios de servicios con fakes in-memory (sin BD).
+4. Si hay ambigüedad sobre un endpoint o el contrato request/response, preguntar antes de asumir.

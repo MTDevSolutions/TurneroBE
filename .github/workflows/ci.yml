@@ -1,0 +1,25 @@
+# CI: corre los tests en cada push (de cualquier rama menos main) y en cada PR.
+# En main los tests los corre deploy.yml, antes de construir la imagen.
+name: CI
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Tests
+        run: dotnet test Tests/Tests.csproj --configuration Release
