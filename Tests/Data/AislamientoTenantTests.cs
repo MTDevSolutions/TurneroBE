@@ -23,6 +23,8 @@ public class AislamientoTenantTests
     [InlineData(typeof(Sucursal))]
     [InlineData(typeof(Usuario))]
     [InlineData(typeof(Configuracion))]
+    [InlineData(typeof(Paciente))]
+    [InlineData(typeof(Turno))]
     public void Las_entidades_de_dominio_tienen_query_filter_de_tenant(Type tipo)
     {
         using var context = NuevoContexto();
@@ -66,5 +68,15 @@ public class AislamientoTenantTests
         var indice = context.Model.FindEntityType(typeof(Configuracion))!.GetIndexes()
             .Single(i => i.GetDatabaseName() == "UX_Configuraciones_TenantId");
         Assert.True(indice.IsUnique);
+    }
+
+    [Fact]
+    public void El_celular_del_paciente_es_unico_dentro_de_la_cuenta()
+    {
+        using var context = NuevoContexto();
+        var indice = context.Model.FindEntityType(typeof(Paciente))!.GetIndexes()
+            .Single(i => i.GetDatabaseName() == CteIndices.PacienteCelular);
+        Assert.True(indice.IsUnique);
+        Assert.Equal(["TenantId", "Celular"], indice.Properties.Select(p => p.Name));
     }
 }

@@ -13,4 +13,10 @@ public class SucursalRepository(TurneroContext context) : ISucursalRepository
         => await _context.Sucursales
             .OrderBy(s => s.Nombre)
             .ToListAsync(cancellationToken);
+
+    public async Task<Sucursal?> GetActivaAsync(int id, CancellationToken cancellationToken = default)
+        => await _context.Sucursales.FirstOrDefaultAsync(s => s.Id == id && s.Activa, cancellationToken);
+
+    public async Task<List<Sucursal>> ListarActivasAsync(CancellationToken cancellationToken = default)
+        => await _context.Sucursales.Where(s => s.Activa).OrderBy(s => s.Nombre).ToListAsync(cancellationToken);
 }

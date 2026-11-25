@@ -65,7 +65,8 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
 - Tenant = la cuenta del profesional. Entidades de plataforma (sin filtro): `Tenant`,
   `PagoSuscripcion`, `Superadmin`.
 - Entidades de dominio: implementan `ITenantEntity` → global query filter por `TenantId` y
-  autocompletado en los inserts. Hoy: `Sucursal` (= consultorio), `Usuario`, `Configuracion`.
+  autocompletado en los inserts. Hoy: `Sucursal` (= consultorio), `Usuario`, `Configuracion`,
+  `Paciente`, `Turno`.
 - JWT de la cuenta lleva `tenant_id` + `rol`; el del superadmin no lleva `tenant_id`
   (`tipo_acceso=plataforma`). Policies `Tenant` y `Superadmin`.
 - `TenantSuspendidoMiddleware` → 403 `TENANT_SUSPENDIDO`.
@@ -73,13 +74,23 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
   `CteTerminos.VersionVigente`. Libres: `/api/auth/*` y `/api/terminos/*`. Cambiar el texto de los
   términos = subir la versión (todas las cuentas vuelven a aceptar).
 
-## 5. WhatsApp
+## 5. Agenda
+
+- `Paciente.Celular` normalizado y único por cuenta (`UX_Pacientes_TenantId_Celular`): es la clave
+  para reconocer la respuesta Sí/No. Búsqueda sin acentos (`unaccent`).
+- `Turno`: Inicio/Fin en UTC, estados `pendiente | confirmado | cancelado | atendido | ausente`
+  (`MaquinaEstadosTurno`). Cancelado, atendido y ausente son finales.
+- Dos turnos vivos (no cancelados) no se superponen: chequeo en `TurnoService` + exclusion
+  constraint `EX_Turnos_SinSolapamiento` (btree_gist, rango `[Inicio, Fin)`), que el UnitOfWork
+  traduce a 409. Mover un turno de horario lo vuelve a `pendiente`.
+
+## 6. WhatsApp
 
 - Se usa WabixGatewayBE sin cambios: salida con `POST /api/mensajes/texto` (outbox + worker, como
   CellFix), entrada por webhook con `X-Webhook-Secret`. La `Etiqueta` del teléfono lleva el id del tenant.
 - Teléfonos se guardan normalizados para Argentina con `TelefonoWhatsappHelper` (549 + área + número).
 
-## 6. Comandos
+## 7. Comandos
 
 ```bash
 docker compose up -d                       # Postgres local en :5436
@@ -93,11 +104,11 @@ dotnet ef database update --project Infrastructure --startup-project Web
 Seed de Development: superadmin `admin@turnero.local` / `Admin1234!`; cuentas demo
 `psico@demo.local` (términos aceptados) y `fono@demo.local` (pendientes), password `Demo1234!`.
 
-## 7. Ramas
+## 8. Ramas
 
 `main` = producción, `dev` = test. Las features salen siempre desde `dev` y el PR va contra `dev`.
 
-## 8. Reglas de interacción con Claude
+## 9. Reglas de interacción con Claude
 
 1. Antes de escribir/modificar código: explicar qué se va a hacer y por qué, y esperar
    confirmación explícita ("dale").

@@ -50,6 +50,13 @@ public static class DependencyInjection
         services.AddScoped<IConfiguracionRepository, ConfiguracionRepository>();
         services.AddScoped<IConfiguracionService, ConfiguracionService>();
 
+        // Dominio: pacientes y agenda
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IPacienteRepository, PacienteRepository>();
+        services.AddScoped<IPacienteService, PacienteService>();
+        services.AddScoped<ITurnoRepository, TurnoRepository>();
+        services.AddScoped<ITurnoService, TurnoService>();
+
         // Plataforma: gestión de cuentas (superadmin)
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<ITenantAdminService, TenantAdminService>();

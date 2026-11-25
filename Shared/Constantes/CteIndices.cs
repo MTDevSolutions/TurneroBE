@@ -13,4 +13,10 @@ public static class CteIndices
 
     /// <summary>Email único global de usuario (identificador del login).</summary>
     public const string UsuarioEmail = "IX_Usuarios_Email";
+
+    /// <summary>Único (TenantId, Celular): un celular identifica a un solo paciente de la cuenta.</summary>
+    public const string PacienteCelular = "UX_Pacientes_TenantId_Celular";
+
+    /// <summary>Exclusion constraint: dos turnos vivos de la misma cuenta no se superponen.</summary>
+    public const string TurnoSinSolapamiento = "EX_Turnos_SinSolapamiento";
 }
