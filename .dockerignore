@@ -1,0 +1,24 @@
+# Artefactos de build del host (evita copiar binarios con RID equivocado al contexto).
+**/bin
+**/obj
+**/.vs
+
+# No hacen falta para publicar Web.
+Tests
+.claude
+
+# Git y metadatos.
+.git
+.gitignore
+.gitattributes
+
+# Secretos y compose no van dentro de la imagen.
+.env
+.env.*
+**/appsettings.Development.json
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Markdown y misc.
+*.md
