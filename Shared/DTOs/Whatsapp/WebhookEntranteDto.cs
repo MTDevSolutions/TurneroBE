@@ -10,9 +10,9 @@ public class WebhookEntranteDto
     public long Id { get; set; }
 
     /// <summary>Número del remitente, solo dígitos (549...).</summary>
-    public string Numero { get; set; } = "";
+    public string? Numero { get; set; } = "";
 
-    public string Texto { get; set; } = "";
+    public string? Texto { get; set; } = "";
 
     public DateTime RecibidoEn { get; set; }
 

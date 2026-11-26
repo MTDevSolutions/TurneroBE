@@ -67,12 +67,20 @@ public class TurnoService(
             throw AppException.Conflicto($"Un turno {turno.Estado} no se puede modificar.");
 
         var inicioAnterior = turno.Inicio;
+        var pacienteAnterior = turno.PacienteId;
         await AplicarAsync(turno, dto, cancellationToken);
 
+        // Otro paciente: para él es un turno nuevo. Se pide confirmar de cero con el aviso de alta.
+        if (turno.PacienteId != pacienteAnterior)
+        {
+            turno.Estado = CteEstadosTurno.Pendiente;
+            turno.RecordatorioEncoladoEn = null;
+            await avisos.EncolarAsync(turno, CteMensajesWhatsapp.TipoAviso, cancellationToken);
+        }
         // Si cambia la hora de inicio, la confirmación era para el horario anterior: vuelve a
         // pendiente y se le pide al paciente que confirme de nuevo. Solo estirar o acortar el
         // turno no le cambia nada al paciente.
-        if (turno.Inicio != inicioAnterior)
+        else if (turno.Inicio != inicioAnterior)
         {
             turno.Estado = CteEstadosTurno.Pendiente;
             // El recordatorio era del horario anterior: con el nuevo vuelve a tocar.

@@ -9,7 +9,7 @@ public class UsuarioRepository(TurneroContext context) : IUsuarioRepository
     public async Task<Usuario?> GetByEmailParaLoginAsync(string email, CancellationToken cancellationToken = default)
         => await context.Usuarios
             .IgnoreQueryFilters() // login pre-auth: sin tenant en contexto
-            .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email, cancellationToken); // email ya viene en minúsculas
 
     public async Task<bool> ExisteActivoAsync(int id, CancellationToken cancellationToken = default)
         => await context.Usuarios.AnyAsync(u => u.Id == id && u.Activo, cancellationToken);

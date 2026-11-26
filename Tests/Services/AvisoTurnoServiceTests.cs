@@ -86,4 +86,18 @@ public class AvisoTurnoServiceTests
         Assert.Contains("se canceló", m.Texto);
         Assert.DoesNotContain("*SÍ*", m.Texto);
     }
+
+    [Fact]
+    public async Task Un_aviso_nuevo_descarta_los_pendientes_del_horario_anterior()
+    {
+        var turno = Turno(new DateTime(2026, 12, 3, 18, 0, 0, DateTimeKind.Utc));
+        await Servicio().EncolarAsync(turno, CteMensajesWhatsapp.TipoAviso);
+        var viejo = _mensajes.Mensajes.Single();
+
+        turno.Inicio = turno.Inicio.AddHours(2);
+        await Servicio().EncolarAsync(turno, CteMensajesWhatsapp.TipoReprogramado);
+
+        Assert.Equal(CteMensajesWhatsapp.Descartado, viejo.Estado);
+        Assert.Equal(CteMensajesWhatsapp.Pendiente, _mensajes.Mensajes.Last().Estado);
+    }
 }

@@ -7,5 +7,5 @@ namespace Infrastructure.Data;
 public class SuperadminRepository(TurneroContext context) : ISuperadminRepository
 {
     public async Task<Superadmin?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
-        => await context.Superadmins.FirstOrDefaultAsync(s => s.Email == email, cancellationToken);
+        => await context.Superadmins.FirstOrDefaultAsync(s => s.Email.ToLower() == email, cancellationToken); // email ya viene en minúsculas
 }

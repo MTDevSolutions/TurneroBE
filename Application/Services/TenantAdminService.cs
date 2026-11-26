@@ -27,7 +27,7 @@ public class TenantAdminService(
         var celular = TelefonoWhatsappHelper.Normalizar(dto.AdminCelular)
             ?? throw AppException.Validacion("El celular del profesional no es válido. Cargalo con código de área, sin 0 ni 15 (ej. 11 2345-6789).");
 
-        var email = dto.AdminEmail.Trim();
+        var email = dto.AdminEmail.Trim().ToLowerInvariant(); // el login busca en minúsculas
         if (await repository.EmailUsuarioEnUsoAsync(email, cancellationToken))
             throw AppException.Conflicto($"El email '{email}' ya está en uso.");
 
@@ -78,7 +78,11 @@ public class TenantAdminService(
         _ = await repository.GetByIdAsync(id, cancellationToken)
             ?? throw AppException.RegistroNoExiste();
 
-        if (dto.PeriodoHasta < dto.PeriodoDesde)
+        // El período son días de calendario; Npgsql solo guarda DateTime en UTC en columnas timestamptz.
+        var desde = DateTime.SpecifyKind(dto.PeriodoDesde.Date, DateTimeKind.Utc);
+        var hasta = DateTime.SpecifyKind(dto.PeriodoHasta.Date, DateTimeKind.Utc);
+
+        if (hasta < desde)
             throw AppException.Validacion("El período del pago termina antes de empezar.");
 
         var pago = new PagoSuscripcion
@@ -86,8 +90,8 @@ public class TenantAdminService(
             // El superadmin no tiene tenant en contexto, así que el stamp automático no aplica.
             TenantId = id,
             Monto = dto.Monto,
-            PeriodoDesde = dto.PeriodoDesde,
-            PeriodoHasta = dto.PeriodoHasta,
+            PeriodoDesde = desde,
+            PeriodoHasta = hasta,
             FechaRegistro = DateTime.UtcNow,
             RegistradoPor = currentUser.Id
         };

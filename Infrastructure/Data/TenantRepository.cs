@@ -57,7 +57,7 @@ public class TenantRepository(TurneroContext context) : ITenantRepository
         => context.PagosSuscripcion.Add(pago);
 
     public async Task<bool> EmailUsuarioEnUsoAsync(string email, CancellationToken cancellationToken = default)
-        => await context.Usuarios.IgnoreQueryFilters().AnyAsync(u => u.Email == email, cancellationToken);
+        => await context.Usuarios.IgnoreQueryFilters().AnyAsync(u => u.Email.ToLower() == email.ToLower(), cancellationToken);
 
     public async Task<TenantWhatsappInfo?> WhatsappInfoAsync(int tenantId, CancellationToken cancellationToken = default)
         => await context.Tenants.AsNoTracking()

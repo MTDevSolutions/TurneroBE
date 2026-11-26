@@ -56,19 +56,31 @@ public class RespuestaWhatsappService(
             return;
         }
 
+        // Sin teléfono vinculado (o sin los términos vigentes) la cuenta no opera por WhatsApp: si al
+        // gateway le quedó una etiqueta vieja o mal cargada, no se tocan turnos con ella.
+        if (tenant.WhatsappTelefonoId is null || tenant.TerminosVersionAceptada != CteTerminos.VersionVigente)
+        {
+            logger.LogWarning("Respuesta de WhatsApp {Id} para la cuenta {TenantId}, que no tiene WhatsApp vinculado o no aceptó los términos.", mensaje.Id, tenantId);
+            return;
+        }
+
         if (await entrantes.ExisteAsync(mensaje.Id, cancellationToken))
             return; // reintento del gateway: ya se procesó
 
+        // El gateway puede mandar null explícito (por ejemplo, un audio sin texto).
+        var crudo = mensaje.Numero ?? string.Empty;
+        var texto = mensaje.Texto ?? string.Empty;
+
         var ahora = reloj.GetUtcNow().UtcDateTime;
-        var numero = TelefonoWhatsappHelper.Normalizar(mensaje.Numero)
-            ?? new string(mensaje.Numero.Where(char.IsAsciiDigit).ToArray());
+        var numero = TelefonoWhatsappHelper.Normalizar(crudo)
+            ?? new string(crudo.Where(char.IsAsciiDigit).ToArray());
 
         var entrante = new MensajeEntrante
         {
             TenantId = tenantId,
             GatewayMensajeId = mensaje.Id,
             Numero = numero.Length > 20 ? numero[..20] : numero,
-            Texto = mensaje.Texto.Length > MaxLargoTexto ? mensaje.Texto[..MaxLargoTexto] : mensaje.Texto,
+            Texto = texto.Length > MaxLargoTexto ? texto[..MaxLargoTexto] : texto,
             RecibidoEn = mensaje.RecibidoEn == default ? ahora : DateTime.SpecifyKind(mensaje.RecibidoEn, DateTimeKind.Utc),
             ProcesadoEn = ahora,
         };

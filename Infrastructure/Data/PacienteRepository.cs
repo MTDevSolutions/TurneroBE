@@ -17,7 +17,9 @@ public class PacienteRepository(TurneroContext context) : IPacienteRepository
 
         if (!string.IsNullOrWhiteSpace(buscar))
         {
-            var patron = $"%{buscar.Trim()}%";
+            // % y _ que escribe el usuario son texto, no comodines (la barra invertida es el escape por defecto de ILIKE).
+            var literal = buscar.Trim().Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_");
+            var patron = $"%{literal}%";
             var digitos = new string(buscar.Where(char.IsAsciiDigit).ToArray());
             // Sin acentos de los dos lados: "gomez" encuentra "Gómez" y "gómez" encuentra "Gomez".
             query = query.Where(p =>

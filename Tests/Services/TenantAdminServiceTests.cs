@@ -138,8 +138,22 @@ public class TenantAdminServiceTests
 
         Assert.Equal(5, pago.TenantId);
         Assert.Equal(99, pago.RegistradoPor);
-        Assert.Single(_repo.Pagos);
+        var guardado = Assert.Single(_repo.Pagos);
         Assert.Equal(1, _uow.Guardados);
+        // Npgsql solo acepta DateTime UTC en timestamptz: el período se guarda como día UTC.
+        Assert.Equal(DateTimeKind.Utc, guardado.PeriodoDesde.Kind);
+        Assert.Equal(new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc), guardado.PeriodoHasta);
+    }
+
+    [Fact]
+    public async Task Alta_guarda_el_email_en_minusculas()
+    {
+        var alta = Alta();
+        alta.AdminEmail = "  Ana@Consultorio.COM ";
+
+        await Servicio().CrearAsync(alta);
+
+        Assert.Equal("ana@consultorio.com", _repo.UltimoAlta!.Value.Admin.Email);
     }
 
     [Fact]

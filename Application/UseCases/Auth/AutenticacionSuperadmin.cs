@@ -12,7 +12,7 @@ public class AutenticacionSuperadmin(ISuperadminRepository repository, IPassword
     public async Task<Superadmin> ExecuteAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         // Mismo error para "no existe" y "password incorrecta": no filtra usuarios.
-        var superadmin = await repository.GetByEmailAsync(email, cancellationToken);
+        var superadmin = await repository.GetByEmailAsync((email ?? string.Empty).Trim().ToLowerInvariant(), cancellationToken);
         if (superadmin == null)
         {
             passwordService.VerificarDummy(password);

@@ -22,6 +22,18 @@ public class MensajeWhatsappRepositoryFake : IMensajeWhatsappRepository
     public Task<List<MensajeWhatsapp>> ListarPorTurnoAsync(int turnoId, CancellationToken cancellationToken = default)
         => Task.FromResult(_mensajes.Where(m => (m.TurnoId ?? m.Turno?.Id) == turnoId).OrderBy(m => m.Id).ToList());
 
+    public Task DescartarPendientesDelTurnoAsync(int turnoId, string motivo, CancellationToken cancellationToken = default)
+    {
+        foreach (var m in _mensajes.Where(m => (m.TurnoId ?? m.Turno?.Id) == turnoId
+                     && m.Estado == CteMensajesWhatsapp.Pendiente
+                     && CteMensajesWhatsapp.TiposSobreHorario.Contains(m.Tipo)))
+        {
+            m.Estado = CteMensajesWhatsapp.Descartado;
+            m.UltimoError = motivo;
+        }
+        return Task.CompletedTask;
+    }
+
     public Task<List<MensajeWhatsapp>> ReclamarPendientesAsync(DateTime ahora, int maximo, TimeSpan lease, CancellationToken cancellationToken = default)
     {
         var lote = _mensajes

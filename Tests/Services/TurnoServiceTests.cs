@@ -306,4 +306,23 @@ public class TurnoServiceTests
         Assert.Equal([CteMensajesWhatsapp.TipoAviso, CteMensajesWhatsapp.TipoCancelado],
             _avisos.Encolados.Select(a => a.Tipo).ToArray());
     }
+
+    [Fact]
+    public async Task Cambiar_de_paciente_pide_confirmar_de_nuevo_al_nuevo()
+    {
+        var beto = _pacientes.Agregar("Beto", "Sosa", "5491155556666");
+        var creado = await Servicio().CrearAsync(Dto(15));
+        await Servicio().CambiarEstadoAsync(creado.Id, new TurnoEstadoDto { Estado = "confirmado" });
+        _turnos.Turnos.Single().RecordatorioEncoladoEn = Ahora.UtcDateTime;
+
+        var dto = Dto(15);
+        dto.PacienteId = beto.Id;
+        var cambiado = await Servicio().ReprogramarAsync(creado.Id, dto);
+
+        Assert.Equal(CteEstadosTurno.Pendiente, cambiado.Estado);
+        Assert.Null(_turnos.Turnos.Single().RecordatorioEncoladoEn);
+        var (turno, tipo) = _avisos.Encolados.Last();
+        Assert.Equal(CteMensajesWhatsapp.TipoAviso, tipo);
+        Assert.Equal(beto.Id, turno.PacienteId);
+    }
 }

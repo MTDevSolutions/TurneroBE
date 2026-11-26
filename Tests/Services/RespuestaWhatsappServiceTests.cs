@@ -30,8 +30,8 @@ public class RespuestaWhatsappServiceTests
 
     public RespuestaWhatsappServiceTests()
     {
-        _cuenta = _tenants.Agregar(new Tenant { Id = 1, Nombre = "Lic. Uno", Especialidad = "psicologia", Estado = "activo", WhatsappTelefonoId = 7 });
-        _tenants.Agregar(new Tenant { Id = 2, Nombre = "Lic. Dos", Especialidad = "psicologia", Estado = "activo", WhatsappTelefonoId = 8 });
+        _cuenta = _tenants.Agregar(new Tenant { Id = 1, Nombre = "Lic. Uno", Especialidad = "psicologia", Estado = "activo", WhatsappTelefonoId = 7, TerminosVersionAceptada = CteTerminos.VersionVigente });
+        _tenants.Agregar(new Tenant { Id = 2, Nombre = "Lic. Dos", Especialidad = "psicologia", Estado = "activo", WhatsappTelefonoId = 8, TerminosVersionAceptada = CteTerminos.VersionVigente });
 
         var ana = new Paciente { Id = 10, TenantId = 1, Nombre = "Ana", Apellido = "Ruiz", Celular = Celular, Activo = true };
         _datos.Pacientes.Add(ana);
@@ -166,4 +166,30 @@ public class RespuestaWhatsappServiceTests
     [Fact]
     public void Sin_secreto_configurado_rechaza_todo()
         => Assert.False(Servicio(secreto: "").SecretoValido(""));
+
+    [Fact]
+    public async Task Cuenta_sin_whatsapp_vinculado_no_toca_turnos()
+    {
+        _cuenta.WhatsappTelefonoId = null;
+
+        await Servicio().ProcesarAsync(Mensaje("No"));
+
+        Assert.Equal(CteEstadosTurno.Pendiente, _turno.Estado);
+        Assert.Empty(_entrantes.Mensajes);
+        Assert.Empty(_salientes.Mensajes);
+    }
+
+    [Fact]
+    public async Task Numero_y_texto_nulos_no_rompen_el_webhook()
+    {
+        var mensaje = Mensaje("x");
+        mensaje.Numero = null;
+        mensaje.Texto = null;
+
+        await Servicio().ProcesarAsync(mensaje);
+
+        var entrante = Assert.Single(_entrantes.Mensajes);
+        Assert.Equal(CteRespuestasWhatsapp.PacienteDesconocido, entrante.Resultado);
+        Assert.Equal(CteEstadosTurno.Pendiente, _turno.Estado);
+    }
 }

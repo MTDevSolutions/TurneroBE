@@ -24,6 +24,11 @@ public static class CteMensajesWhatsapp
     /// <summary>Al celular personal del profesional: un paciente canceló por WhatsApp.</summary>
     public const string TipoAvisoProfesional = "aviso_profesional";
 
+    /// <summary>Mensajes que hablan del horario vigente y piden confirmarlo: si el turno cambia,
+    /// se cancela o ya empezó, los que no salieron todavía no se mandan.</summary>
+    public static readonly IReadOnlySet<string> TiposSobreHorario =
+        new HashSet<string> { TipoAviso, TipoReprogramado, TipoRecordatorio, TipoConfirmacionRecibida };
+
     public const int MaxLargoTexto = 1000;
 
     /// <summary>Intentos antes de dar el mensaje por fallido.</summary>

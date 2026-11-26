@@ -201,4 +201,61 @@ public class ProcesadorEnvioWhatsappTests
         Assert.Equal("La cuenta no aceptó los términos de uso vigentes.", m.UltimoError);
         Assert.Empty(_gateway.Envios);
     }
+
+    private MensajeWhatsapp PendienteDeTurno(string estadoTurno, DateTime inicio, string celularPaciente = "5491123456789")
+    {
+        var m = Pendiente();
+        m.Turno = new Turno
+        {
+            Id = 1, TenantId = 1, Estado = estadoTurno, Inicio = inicio, Fin = inicio.AddMinutes(45),
+            Paciente = new Paciente { Id = 1, Celular = celularPaciente, Nombre = "Ana", Apellido = "Ruiz" },
+        };
+        return m;
+    }
+
+    [Theory]
+    [InlineData(CteEstadosTurno.Cancelado)]
+    [InlineData(CteEstadosTurno.Atendido)]
+    public async Task Aviso_de_un_turno_que_ya_no_esta_vivo_se_descarta(string estado)
+    {
+        var m = PendienteDeTurno(estado, Ahora.AddDays(1));
+
+        await Procesador().ProcesarAsync(Ahora, default);
+
+        Assert.Equal(CteMensajesWhatsapp.Descartado, m.Estado);
+        Assert.Empty(_gateway.Envios);
+    }
+
+    [Fact]
+    public async Task Aviso_de_un_turno_que_ya_empezo_se_descarta()
+    {
+        var m = PendienteDeTurno(CteEstadosTurno.Pendiente, Ahora.AddMinutes(-5));
+
+        await Procesador().ProcesarAsync(Ahora, default);
+
+        Assert.Equal(CteMensajesWhatsapp.Descartado, m.Estado);
+        Assert.Empty(_gateway.Envios);
+    }
+
+    [Fact]
+    public async Task Aviso_a_un_paciente_que_ya_no_es_el_del_turno_se_descarta()
+    {
+        var m = PendienteDeTurno(CteEstadosTurno.Confirmado, Ahora.AddDays(1), celularPaciente: "5491100000000");
+
+        await Procesador().ProcesarAsync(Ahora, default);
+
+        Assert.Equal(CteMensajesWhatsapp.Descartado, m.Estado);
+        Assert.Empty(_gateway.Envios);
+    }
+
+    [Fact]
+    public async Task Aviso_de_cancelacion_sale_aunque_el_turno_este_cancelado()
+    {
+        var m = PendienteDeTurno(CteEstadosTurno.Cancelado, Ahora.AddDays(1));
+        m.Tipo = CteMensajesWhatsapp.TipoCancelado;
+
+        await Procesador().ProcesarAsync(Ahora, default);
+
+        Assert.Equal(CteMensajesWhatsapp.Enviado, m.Estado);
+    }
 }

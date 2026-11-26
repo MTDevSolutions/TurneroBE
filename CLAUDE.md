@@ -114,7 +114,9 @@ dotnet ef database update --project Infrastructure --startup-project Web
 ```
 
 Seed de Development: superadmin `admin@turnero.local` / `Admin1234!`; cuentas demo
-`psico@demo.local` (términos aceptados) y `fono@demo.local` (pendientes), password `Demo1234!`.
+`psico@demo.local` (términos aceptados, con 8 pacientes y una semana de turnos de ejemplo) y
+`fono@demo.local` (pendientes, sin datos), password `Demo1234!`. Fuera de Development la API no arranca
+con la clave JWT ni la password de superadmin de ejemplo.
 
 ## 8. Ramas
 

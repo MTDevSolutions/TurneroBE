@@ -1,5 +1,6 @@
 using Application.Helpers;
 using Application.Interfaces;
+using Application.UseCases.Turnos;
 using Application.UseCases.Whatsapp;
 using Domain.Entities;
 using Microsoft.Extensions.Logging;
@@ -83,6 +84,12 @@ public class ProcesadorEnvioWhatsapp(
             return;
         }
 
+        if (MotivoTurnoCambio(mensaje, ahora) is string motivo)
+        {
+            Descartar(mensaje, motivo);
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(mensaje.Destino))
         {
             Descartar(mensaje, "No hay un celular al que mandarlo.");
@@ -122,6 +129,24 @@ public class ProcesadorEnvioWhatsapp(
                     mensaje.ProximoIntentoEn = alResultado + CteMensajesWhatsapp.Backoff(mensaje.Intentos);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Un mensaje que espera reintento puede quedar viejo: el turno se canceló, ya empezó o cambió de
+    /// paciente. Mandarlo igual le diría al paciente algo falso (y un "Sí" confirmaría otro horario).
+    /// </summary>
+    private static string? MotivoTurnoCambio(MensajeWhatsapp mensaje, DateTime ahora)
+    {
+        if (mensaje.Turno is not { } turno || !CteMensajesWhatsapp.TiposSobreHorario.Contains(mensaje.Tipo))
+            return null;
+
+        if (!MaquinaEstadosTurno.EsEditable(turno.Estado))
+            return $"El turno ya está {turno.Estado}.";
+        if (turno.Inicio <= ahora)
+            return "El turno ya empezó.";
+        if (turno.Paciente is { } paciente && paciente.Celular != mensaje.Destino)
+            return "El turno cambió de paciente.";
+        return null;
     }
 
     private static void Descartar(MensajeWhatsapp mensaje, string motivo)

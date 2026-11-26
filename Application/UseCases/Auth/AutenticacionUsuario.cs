@@ -18,7 +18,7 @@ public class AutenticacionUsuario(
 {
     public async Task<Usuario> ExecuteAsync(string email, string password, CancellationToken cancellationToken = default)
     {
-        var usuario = await usuarioRepository.GetByEmailParaLoginAsync(email, cancellationToken);
+        var usuario = await usuarioRepository.GetByEmailParaLoginAsync((email ?? string.Empty).Trim().ToLowerInvariant(), cancellationToken);
         if (usuario == null)
         {
             passwordService.VerificarDummy(password);

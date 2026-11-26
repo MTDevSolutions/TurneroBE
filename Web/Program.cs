@@ -111,6 +111,18 @@ var audience = jwtSection["Audience"]
     ?? Environment.GetEnvironmentVariable("JwtSettings__Audience")
     ?? throw new Exception("JwtSettings:Audience missing!");
 
+// Fuera de Development no se arranca con los secretos de ejemplo de appsettings.json: la clave JWT
+// de dev firmaría tokens que cualquiera puede falsificar, y el superadmin quedaría con la password
+// documentada en el CLAUDE.md.
+if (!builder.Environment.IsDevelopment())
+{
+    if (secret == "CAMBIAR-ESTA-CLAVE-DE-DESARROLLO-MIN-32-CHARS")
+        throw new Exception("JwtSettings:Key tiene el valor de desarrollo: configurar JwtSettings__Key.");
+    if (string.IsNullOrWhiteSpace(builder.Configuration["Superadmin:Password"])
+        || builder.Configuration["Superadmin:Password"] == "Admin1234!")
+        throw new Exception("Superadmin:Password tiene el valor de desarrollo: configurar Superadmin__Password.");
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

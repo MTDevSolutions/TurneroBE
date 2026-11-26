@@ -26,6 +26,10 @@ public class AvisoTurnoService(
         if (!TiposValidos.Contains(tipo))
             throw new ArgumentOutOfRangeException(nameof(tipo), tipo, "Tipo de aviso de agenda desconocido.");
 
+        // Lo que quedó sin salir sobre el horario anterior (o el paciente anterior) ya no es cierto.
+        if (turno.Id != 0)
+            await mensajes.DescartarPendientesDelTurnoAsync(turno.Id, "Reemplazado por un aviso más nuevo.", cancellationToken);
+
         var ahora = reloj.GetUtcNow().UtcDateTime;
         if (turno.Inicio <= ahora)
             return; // un turno que ya empezó no necesita aviso
