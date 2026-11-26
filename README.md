@@ -14,7 +14,7 @@ Necesitás Docker, el SDK de .NET 10 y Node 20.19 o superior.
 
 ```bash
 docker compose up -d                          # Postgres en el puerto 5436
-RUN_MIGRATIONS=true dotnet run --project Web  # API en http://localhost:53714/swagger
+RUN_MIGRATIONS=true dotnet run --project Web  # API en http://localhost:5080/swagger
 ```
 
 En PowerShell: `$env:RUN_MIGRATIONS="true"; dotnet run --project Web`.

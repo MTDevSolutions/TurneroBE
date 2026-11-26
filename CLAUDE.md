@@ -107,7 +107,7 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
 ```bash
 docker compose up -d                       # Postgres local en :5436
 dotnet build Turnero.sln
-dotnet run --project Web                   # http://localhost:53714/swagger
+dotnet run --project Web                   # http://localhost:5080/swagger
 dotnet test Tests/Tests.csproj
 dotnet ef migrations add <Nombre> --project Infrastructure --startup-project Web
 dotnet ef database update --project Infrastructure --startup-project Web
