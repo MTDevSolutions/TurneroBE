@@ -62,3 +62,8 @@ dotnet build Turnero.sln
 dotnet test Tests/Tests.csproj
 dotnet ef migrations add <Nombre> --project Infrastructure --startup-project Web
 ```
+
+## Producción
+
+Turnix corre en el VPS (API + Postgres en Docker, detrás de Caddy) y el front en Vercel. Cada push a
+`main` se despliega solo. Pasos de instalación, WhatsApp y operación: [docs/deploy-vps.md](./docs/deploy-vps.md).

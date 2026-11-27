@@ -133,6 +133,16 @@ Seed de Development: superadmin `admin@turnero.local` / `Admin1234!`; cuentas de
 `fono@demo.local` (pendientes, sin datos), password `Demo1234!`. Fuera de Development la API no arranca
 con la clave JWT ni la password de superadmin de ejemplo.
 
+## 7.1 Producción (Turnix)
+
+El producto se llama **Turnix**. Runbook completo: `docs/deploy-vps.md`.
+- API en el VPS (`https://turnix-api.mtdevapp.com`, Caddy → `127.0.0.1:5007`), con `docker-compose.prod.yml`
+  (`turnix_backend` + `turnix_db`) unido a la red `wabix-gateway_default` para hablar con el gateway.
+- Push a `main` → `.github/workflows/deploy.yml`: tests, imagen en GHCR y `scripts/deploy.sh` por SSH
+  (backup previo, healthcheck en `GET /`, rollback a la imagen anterior si no responde).
+- Front en Vercel (`https://turnix.mtdevapp.com`): reenvía `/api/*` a la API, así que cookies `Lax` y CSRF activo.
+- En producción no hay cuentas demo: las crea el superadmin (`POST /api/tenants`).
+
 ## 8. Ramas
 
 `main` = producción, `dev` = test. Las features salen siempre desde `dev` y el PR va contra `dev`.
