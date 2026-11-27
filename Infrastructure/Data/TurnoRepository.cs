@@ -21,6 +21,14 @@ public class TurnoRepository(TurneroContext context) : ITurnoRepository
             .Include(t => t.Sucursal)
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
 
+    public async Task<List<Turno>> ListarPorPacienteAsync(int pacienteId, CancellationToken cancellationToken = default)
+        => await context.Turnos.AsNoTracking()
+            .Include(t => t.Paciente)
+            .Include(t => t.Sucursal)
+            .Where(t => t.PacienteId == pacienteId)
+            .OrderByDescending(t => t.Inicio)
+            .ToListAsync(cancellationToken);
+
     // Rangos semiabiertos [inicio, fin): un turno que termina 15:00 no choca con uno que empieza 15:00.
     public async Task<bool> HaySolapamientoAsync(DateTime inicioUtc, DateTime finUtc, int? excluirId, CancellationToken cancellationToken = default)
         => await context.Turnos.AnyAsync(t =>

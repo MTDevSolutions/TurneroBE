@@ -25,6 +25,8 @@ public class AislamientoTenantTests
     [InlineData(typeof(Configuracion))]
     [InlineData(typeof(Paciente))]
     [InlineData(typeof(Turno))]
+    [InlineData(typeof(NotaConsulta))]
+    [InlineData(typeof(NotaConsultaVersion))]
     public void Las_entidades_de_dominio_tienen_query_filter_de_tenant(Type tipo)
     {
         using var context = NuevoContexto();

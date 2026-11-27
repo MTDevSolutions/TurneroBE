@@ -59,6 +59,11 @@ public static class DependencyInjection
         services.AddScoped<ITurnoRepository, TurnoRepository>();
         services.AddScoped<ITurnoService, TurnoService>();
 
+        // Dominio: notas de consulta y ficha del paciente
+        services.AddScoped<INotaConsultaRepository, NotaConsultaRepository>();
+        services.AddScoped<INotaConsultaService, NotaConsultaService>();
+        services.AddScoped<IFichaPacienteService, FichaPacienteService>();
+
         // Plataforma: gestión de cuentas (superadmin)
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<ITenantAdminService, TenantAdminService>();

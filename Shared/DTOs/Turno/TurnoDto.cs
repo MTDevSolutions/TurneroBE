@@ -17,4 +17,8 @@ public class TurnoDto
     public string? CanceladoPor { get; set; }
     public string? MotivoCancelacion { get; set; }
     public string? Notas { get; set; }
+
+    /// <summary>Notas de consulta vigentes (no anuladas) del turno. Solo el número: el texto
+    /// se pide aparte y lo ve solo el profesional.</summary>
+    public int CantidadNotas { get; set; }
 }

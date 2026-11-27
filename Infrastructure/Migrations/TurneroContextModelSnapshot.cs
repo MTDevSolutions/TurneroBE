@@ -177,6 +177,115 @@ namespace Infrastructure.Migrations
                     b.ToTable("MensajesWhatsapp");
                 });
 
+            modelBuilder.Entity("Domain.Entities.NotaConsulta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Anulada")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("AnuladaEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("AnuladaPor")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreadaEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreadaPor")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("EditadaEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("EditadaPor")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<int>("PacienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)");
+
+                    b.Property<int?>("TurnoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PacienteId");
+
+                    b.HasIndex("TurnoId")
+                        .HasDatabaseName("IX_NotasConsulta_TurnoId");
+
+                    b.HasIndex("TenantId", "PacienteId", "CreadaEn")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("IX_NotasConsulta_TenantId_PacienteId_CreadaEn");
+
+                    b.ToTable("NotasConsulta", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.NotaConsultaVersion", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("GuardadaEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GuardadaPor")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("NotaConsultaId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("NotaConsultaId", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("UX_NotasConsultaVersiones_NotaConsultaId_Version");
+
+                    b.ToTable("NotasConsultaVersiones", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.Paciente", b =>
                 {
                     b.Property<int>("Id")
@@ -574,6 +683,48 @@ namespace Infrastructure.Migrations
                         .HasConstraintName("FK_MensajesWhatsapp_Turnos");
 
                     b.Navigation("Turno");
+                });
+
+            modelBuilder.Entity("Domain.Entities.NotaConsulta", b =>
+                {
+                    b.HasOne("Domain.Entities.Paciente", null)
+                        .WithMany()
+                        .HasForeignKey("PacienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_NotasConsulta_Pacientes");
+
+                    b.HasOne("Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_NotasConsulta_Tenants");
+
+                    b.HasOne("Domain.Entities.Turno", "Turno")
+                        .WithMany()
+                        .HasForeignKey("TurnoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_NotasConsulta_Turnos");
+
+                    b.Navigation("Turno");
+                });
+
+            modelBuilder.Entity("Domain.Entities.NotaConsultaVersion", b =>
+                {
+                    b.HasOne("Domain.Entities.NotaConsulta", null)
+                        .WithMany()
+                        .HasForeignKey("NotaConsultaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_NotasConsultaVersiones_NotasConsulta");
+
+                    b.HasOne("Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_NotasConsultaVersiones_Tenants");
                 });
 
             modelBuilder.Entity("Domain.Entities.Paciente", b =>
