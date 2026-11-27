@@ -1,0 +1,91 @@
+# Compose de PRODUCCION de Turnix (VPS Hetzner). Runbook: docs/deploy-vps.md
+# Levantar a mano: docker compose -f docker-compose.prod.yml up -d
+# Los valores sensibles salen del archivo .env (ver .env.example). NADA hardcodeado ni en git.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # El deploy automatico (scripts/deploy.sh) pasa TURNIX_TAG=<sha del commit>; a mano usa 'latest'.
+    # 'build' queda como plan B (docker compose up -d --build) si GHCR no estuviera disponible.
+    image: ghcr.io/mtdevsolutions/turnerobe:${TURNIX_TAG:-latest}
+    container_name: turnix_backend
+    restart: always
+    # Rota logs: max 3 archivos de 10 MB por contenedor (~30 MB tope). Evita que llenen el disco.
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - PORT=5004
+      # Aplica migraciones EF pendientes al arrancar (crea el esquema en una BD nueva).
+      - RUN_MIGRATIONS=true
+      - ConnectionStrings__TurneroEntities=Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - JwtSettings__Key=${JWT_KEY}
+      - JwtSettings__Issuer=${JWT_ISSUER}
+      - JwtSettings__Audience=${JWT_AUDIENCE}
+      - CorsSettings__AllowedOrigin=${CORS_ALLOWED_ORIGIN}
+      - CsrfSettings__Enabled=${CSRF_ENABLED}
+      # El front (Vercel) reenvia /api/* a esta API: para el navegador es el mismo dominio,
+      # asi que alcanza SameSite=Lax con Secure=true.
+      - CookieSettings__SameSite=${COOKIE_SAMESITE}
+      - CookieSettings__Secure=${COOKIE_SECURE}
+      # Superadmin de plataforma: se siembra al arrancar si no existe. En produccion no hay cuentas demo.
+      - Superadmin__Nombre=${SUPERADMIN_NOMBRE}
+      - Superadmin__Email=${SUPERADMIN_EMAIL}
+      - Superadmin__Password=${SUPERADMIN_PASSWORD}
+      # Swagger: apagado por defecto. Con ENABLE_SWAGGER=true queda detras de basic auth (SwaggerAuth__*).
+      - ENABLE_SWAGGER=${ENABLE_SWAGGER}
+      - SwaggerAuth__Username=${SWAGGER_USERNAME}
+      - SwaggerAuth__Password=${SWAGGER_PASSWORD}
+      # WhatsApp (Wabix Gateway, mismo VPS). Sin URL o sin API key, el envio queda deshabilitado.
+      - WhatsappGateway__BaseUrl=${WHATSAPP_GATEWAY_URL:-}
+      - WhatsappGateway__ApiKey=${WHATSAPP_GATEWAY_API_KEY:-}
+      # Secreto que el gateway manda en X-Webhook-Secret al entregar las respuestas. Vacio = 401 a todo.
+      - WhatsappGateway__WebhookSecret=${WHATSAPP_WEBHOOK_SECRET:-}
+    networks:
+      - default
+      # Red del gateway (mismo VPS): el turnero lo llama por http://gateway:8080 y el gateway le entrega
+      # las respuestas por http://turnix_backend:5004, sin salir a internet.
+      - wabix
+    ports:
+      # Solo accesible desde el propio servidor; Caddy hace el reverse proxy + TLS por delante.
+      - "127.0.0.1:5004:5004"
+
+  db:
+    image: postgres:16
+    container_name: turnix_db
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - turnix_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      # Expuesto solo en localhost para pg_dump/psql desde el host; no accesible desde internet.
+      - "127.0.0.1:5437:5432"
+
+volumes:
+  turnix_db_data:
+
+networks:
+  # Red creada por el compose de wabix-gateway; tiene que existir (gateway levantado) antes de arrancar Turnix.
+  wabix:
+    external: true
+    name: wabix-gateway_default

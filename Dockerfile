@@ -20,6 +20,6 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app ./
 ENV ASPNETCORE_ENVIRONMENT=Production
-# El puerto real lo define la env var PORT (Program.cs escucha en 0.0.0.0:$PORT). El compose de producción llega en la etapa 4.
+# El puerto real lo define la env var PORT (Program.cs escucha en 0.0.0.0:$PORT): 5004 en docker-compose.prod.yml.
 EXPOSE 5004
 ENTRYPOINT ["dotnet", "Web.dll"]
