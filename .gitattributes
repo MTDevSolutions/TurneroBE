@@ -1,0 +1,4 @@
+# Los scripts de shell y los workflows corren en Linux: siempre con saltos de linea LF,
+# aunque se clonen en Windows (con CRLF, bash falla con "\r: command not found").
+*.sh text eol=lf
+*.yml text eol=lf

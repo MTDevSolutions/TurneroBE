@@ -1,0 +1,166 @@
+using Application.Exceptions;
+using Application.Helpers;
+using Application.Interfaces;
+using Application.Interfaces.Auth;
+using Application.UseCases.Security_Context;
+using Domain.Entities;
+using Shared.Constantes;
+using Shared.DTOs.Plataforma;
+
+namespace Application.Services;
+
+public class TenantAdminService(
+    ITenantRepository repository,
+    IPasswordService passwordService,
+    ISecurityContextService currentUser,
+    ITenantEstadoService tenantEstadoService,
+    IWhatsappGateway gateway,
+    IUnitOfWork uow) : ITenantAdminService
+{
+    public async Task<TenantDto> CrearAsync(TenantCrearDto dto, CancellationToken cancellationToken = default)
+    {
+        var especialidad = (dto.Especialidad ?? string.Empty).Trim().ToLowerInvariant();
+        if (!CteEspecialidades.Todas.Contains(especialidad))
+            throw AppException.Validacion($"Especialidad inválida. Valores posibles: {string.Join(", ", CteEspecialidades.Todas)}.");
+
+        // El celular personal recibe los avisos de cancelación: uno mal cargado los manda a otra persona.
+        var celular = TelefonoWhatsappHelper.Normalizar(dto.AdminCelular)
+            ?? throw AppException.Validacion("El celular del profesional no es válido. Cargalo con código de área, sin 0 ni 15 (ej. 11 2345-6789).");
+
+        var email = dto.AdminEmail.Trim().ToLowerInvariant(); // el login busca en minúsculas
+        if (await repository.EmailUsuarioEnUsoAsync(email, cancellationToken))
+            throw AppException.Conflicto($"El email '{email}' ya está en uso.");
+
+        var tenant = new Tenant
+        {
+            Nombre = dto.Nombre.Trim(),
+            Especialidad = especialidad,
+            Plan = dto.Plan,
+            Estado = CteEstadosTenant.Activo,
+            FechaAlta = DateTime.UtcNow
+        };
+
+        var consultorio = new Sucursal
+        {
+            Nombre = dto.ConsultorioNombre.Trim(),
+            Direccion = string.IsNullOrWhiteSpace(dto.ConsultorioDireccion) ? null : dto.ConsultorioDireccion.Trim(),
+            Activa = true
+        };
+
+        var admin = new Usuario
+        {
+            Nombre = dto.AdminNombre.Trim(),
+            Email = email,
+            Rol = CteRoles.Admin,
+            PasswordHash = passwordService.Encriptar(dto.AdminPassword),
+            Celular = celular,
+            Activo = true
+        };
+
+        await repository.CrearConAdminAsync(tenant, consultorio, admin, new Configuracion(), cancellationToken);
+        return Mapear(tenant);
+    }
+
+    public async Task<List<TenantDto>> ListarAsync(CancellationToken cancellationToken = default)
+    {
+        var tenants = await repository.ListarAsync(cancellationToken);
+        return tenants.Select(Mapear).ToList();
+    }
+
+    public Task SuspenderAsync(int id, CancellationToken cancellationToken = default)
+        => CambiarEstadoAsync(id, CteEstadosTenant.Suspendido, cancellationToken);
+
+    public Task ReactivarAsync(int id, CancellationToken cancellationToken = default)
+        => CambiarEstadoAsync(id, CteEstadosTenant.Activo, cancellationToken);
+
+    public async Task<PagoSuscripcionDto> RegistrarPagoAsync(int id, RegistrarPagoDto dto, CancellationToken cancellationToken = default)
+    {
+        _ = await repository.GetByIdAsync(id, cancellationToken)
+            ?? throw AppException.RegistroNoExiste();
+
+        // El período son días de calendario; Npgsql solo guarda DateTime en UTC en columnas timestamptz.
+        var desde = DateTime.SpecifyKind(dto.PeriodoDesde.Date, DateTimeKind.Utc);
+        var hasta = DateTime.SpecifyKind(dto.PeriodoHasta.Date, DateTimeKind.Utc);
+
+        if (hasta < desde)
+            throw AppException.Validacion("El período del pago termina antes de empezar.");
+
+        var pago = new PagoSuscripcion
+        {
+            // El superadmin no tiene tenant en contexto, así que el stamp automático no aplica.
+            TenantId = id,
+            Monto = dto.Monto,
+            PeriodoDesde = desde,
+            PeriodoHasta = hasta,
+            FechaRegistro = DateTime.UtcNow,
+            RegistradoPor = currentUser.Id
+        };
+
+        repository.AgregarPago(pago);
+        await uow.GuardarAsync(cancellationToken);
+
+        return new PagoSuscripcionDto
+        {
+            Id = pago.Id,
+            TenantId = pago.TenantId,
+            Monto = pago.Monto,
+            PeriodoDesde = pago.PeriodoDesde,
+            PeriodoHasta = pago.PeriodoHasta,
+            FechaRegistro = pago.FechaRegistro,
+            RegistradoPor = pago.RegistradoPor
+        };
+    }
+
+    private async Task CambiarEstadoAsync(int id, string estado, CancellationToken cancellationToken)
+    {
+        var tenant = await repository.GetByIdAsync(id, cancellationToken)
+            ?? throw AppException.RegistroNoExiste();
+
+        tenant.Estado = estado;
+        await uow.GuardarAsync(cancellationToken);
+
+        // Sin esto, las sesiones abiertas siguen entrando hasta que venza el caché.
+        tenantEstadoService.InvalidarCache(id);
+    }
+
+    public async Task<TenantDto> VincularWhatsappAsync(int id, int? telefonoId, CancellationToken cancellationToken = default)
+    {
+        var tenant = await repository.GetByIdAsync(id, cancellationToken)
+            ?? throw AppException.RegistroNoExiste();
+
+        // Se valida contra el gateway antes de guardar: un id mal tipeado dejaría a la cuenta
+        // mandando avisos que nunca salen, o peor, por el número de otro cliente del gateway.
+        if (telefonoId is int telefono)
+        {
+            if (!gateway.Configurado)
+                throw AppException.Conflicto("El gateway de WhatsApp no está configurado en este entorno.");
+
+            var existe = await gateway.ExisteTelefonoAsync(telefono, cancellationToken);
+            if (existe is null)
+                throw AppException.ServicioNoDisponible("No se pudo contactar al gateway de WhatsApp. Volvé a intentar.");
+            if (existe == false)
+                throw AppException.RegistroNoExiste();
+        }
+
+        tenant.WhatsappTelefonoId = telefonoId;
+        await uow.GuardarTraduciendoDuplicadoAsync(CteIndices.TenantWhatsappTelefono,
+            "Ese teléfono ya está vinculado a otra cuenta.", cancellationToken);
+
+        return Mapear(tenant);
+    }
+
+    private static TenantDto Mapear(Tenant t) => new()
+    {
+        Id = t.Id,
+        Nombre = t.Nombre,
+        Especialidad = t.Especialidad,
+        Estado = t.Estado,
+        Plan = t.Plan,
+        FechaAlta = t.FechaAlta,
+        FechaProximoPago = t.FechaProximoPago,
+        FechaFinGracia = t.FechaFinGracia,
+        WhatsappTelefonoId = t.WhatsappTelefonoId,
+        TerminosVersionAceptada = t.TerminosVersionAceptada,
+        TerminosAceptadosEn = t.TerminosAceptadosEn
+    };
+}
