@@ -22,7 +22,7 @@ services:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - PORT=5004
+      - PORT=5007
       # Aplica migraciones EF pendientes al arrancar (crea el esquema en una BD nueva).
       - RUN_MIGRATIONS=true
       - ConnectionStrings__TurneroEntities=Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
@@ -51,11 +51,11 @@ services:
     networks:
       - default
       # Red del gateway (mismo VPS): el turnero lo llama por http://gateway:8080 y el gateway le entrega
-      # las respuestas por http://turnix_backend:5004, sin salir a internet.
+      # las respuestas por http://turnix_backend:5007, sin salir a internet.
       - wabix
     ports:
       # Solo accesible desde el propio servidor; Caddy hace el reverse proxy + TLS por delante.
-      - "127.0.0.1:5004:5004"
+      - "127.0.0.1:5007:5007"
 
   db:
     image: postgres:16

@@ -13,7 +13,7 @@ set -euo pipefail
 IMAGE="ghcr.io/mtdevsolutions/turnerobe"   # debe coincidir con 'image:' de docker-compose.prod.yml
 CONTAINER_BACKEND="turnix_backend"
 CONTAINER_DB="turnix_db"
-HEALTH_URL="http://127.0.0.1:5004/"        # GET / sirve de healthcheck (puerto 5004 del compose)
+HEALTH_URL="http://127.0.0.1:5007/"        # GET / sirve de healthcheck (puerto 5007 del compose)
 DEPLOY_KEY="$HOME/.ssh/turnix_deploy"      # deploy key de solo lectura del repo (privado)
 BACKUPS_DIR="$HOME/backups"
 BACKUPS_A_CONSERVAR=14

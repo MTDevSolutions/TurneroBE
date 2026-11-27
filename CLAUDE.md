@@ -136,7 +136,7 @@ con la clave JWT ni la password de superadmin de ejemplo.
 ## 7.1 Producción (Turnix)
 
 El producto se llama **Turnix**. Runbook completo: `docs/deploy-vps.md`.
-- API en el VPS (`https://turnix-api.mtdevapp.com`, Caddy → `127.0.0.1:5004`), con `docker-compose.prod.yml`
+- API en el VPS (`https://turnix-api.mtdevapp.com`, Caddy → `127.0.0.1:5007`), con `docker-compose.prod.yml`
   (`turnix_backend` + `turnix_db`) unido a la red `wabix-gateway_default` para hablar con el gateway.
 - Push a `main` → `.github/workflows/deploy.yml`: tests, imagen en GHCR y `scripts/deploy.sh` por SSH
   (backup previo, healthcheck en `GET /`, rollback a la imagen anterior si no responde).

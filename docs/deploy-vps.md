@@ -6,8 +6,8 @@ Turnix = este backend (TurneroBE) + el front (TurneroFE). Mismo esquema que Cell
 | Pieza | Dónde | Detalle |
 |---|---|---|
 | Front | Vercel | `https://turnix.mtdevapp.com`, rama `main` de TurneroFE |
-| API | VPS `188.245.44.207` | `https://turnix-api.mtdevapp.com` → Caddy → `127.0.0.1:5004` |
-| Contenedores | VPS, `~/turnix` | `turnix_backend` (5004), `turnix_db` (Postgres 16, `127.0.0.1:5437`) |
+| API | VPS `188.245.44.207` | `https://turnix-api.mtdevapp.com` → Caddy → `127.0.0.1:5007` |
+| Contenedores | VPS, `~/turnix` | `turnix_backend` (5007), `turnix_db` (Postgres 16, `127.0.0.1:5437`) |
 | WhatsApp | VPS, `~/wabix-gateway` | bot `whatsapp-bot-4`, empresa "Turnix", modo webhook por la red docker |
 
 El front **no llama a la API por otro dominio**: `vercel.json` reenvía `/api/*` a `turnix-api`. Para el
@@ -34,11 +34,12 @@ nslookup turnix-api.mtdevapp.com 8.8.8.8     # debe dar 188.245.44.207
 ```bash
 free -h                         # memoria libre (Turnix ~200 MB + Postgres ~100 MB + bot ~200 MB)
 docker stats --no-stream        # consumo de lo que ya corre
-ss -ltnp | grep -E ':(5004|5437)\b' || echo "puertos libres"
+ss -ltnp | grep -E ':(5007|5437)\b' || echo "puertos libres"
 docker network ls --filter name=wabix   # tiene que existir wabix-gateway_default
 ```
 
-Si `5004` o `5437` están ocupados, cambiarlos en `docker-compose.prod.yml` y en `scripts/deploy.sh`
+Puertos ya usados en el VPS: 5001–5006 (gymtracker, agrotrack, cellfix, dixit, appgastos, gateway), 5050 y 5433–5436.
+Si `5007` o `5437` están ocupados, cambiarlos en `docker-compose.prod.yml` y en `scripts/deploy.sh`
 (`HEALTH_URL`) antes de seguir.
 
 ## 3. Clonar el repo (deploy key de solo lectura)
@@ -84,7 +85,7 @@ sudo nano /etc/caddy/Caddyfile
 
 ```
 turnix-api.mtdevapp.com {
-    reverse_proxy localhost:5004
+    reverse_proxy localhost:5007
 }
 ```
 
@@ -197,7 +198,7 @@ curl -s -X POST $GW/admin/telefonos -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content
   "baileysBaseUrl": "http://whatsapp-bot-4:3000",
   "baileysApiKey": "<BOT_4_API_KEY>",
   "secretoEntrante": "<BOT_4_SECRETO_ENTRANTE>",
-  "webhookUrl": "http://turnix_backend:5004/api/webhooks/whatsapp",
+  "webhookUrl": "http://turnix_backend:5007/api/webhooks/whatsapp",
   "webhookSecret": "<WHATSAPP_WEBHOOK_SECRET del .env de Turnix>"
 }'
 
