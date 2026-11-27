@@ -19,6 +19,7 @@ public class TurnoService(
     ISucursalRepository sucursales,
     IConfiguracionRepository configuracion,
     IAvisoTurnoService avisos,
+    INotaConsultaRepository notas,
     IUnitOfWork uow,
     TimeProvider reloj) : ITurnoService
 {
@@ -38,11 +39,12 @@ public class TurnoService(
             throw AppException.Validacion($"El rango no puede superar los {MaxDiasRango} días.");
 
         var lista = await turnos.ListarRangoAsync(desde.UtcDateTime, hasta.UtcDateTime, cancellationToken);
-        return lista.Select(Mapear).ToList();
+        var cantidades = await notas.ContarPorTurnoAsync(lista.Select(t => t.Id).ToList(), cancellationToken);
+        return lista.Select(t => Mapear(t, cantidades.GetValueOrDefault(t.Id))).ToList();
     }
 
     public async Task<TurnoDto> ObtenerAsync(int id, CancellationToken cancellationToken = default)
-        => Mapear(await ObtenerEntidadAsync(id, cancellationToken));
+        => await MapearConNotasAsync(await ObtenerEntidadAsync(id, cancellationToken), cancellationToken);
 
     public async Task<TurnoDto> CrearAsync(TurnoGuardarDto dto, CancellationToken cancellationToken = default)
     {
@@ -100,7 +102,7 @@ public class TurnoService(
 
         var turno = await ObtenerEntidadAsync(id, cancellationToken);
         if (turno.Estado == hacia)
-            return Mapear(turno);
+            return await MapearConNotasAsync(turno, cancellationToken);
 
         if (!MaquinaEstadosTurno.EsTransicionValida(turno.Estado, hacia))
             throw AppException.Conflicto($"Un turno {turno.Estado} no puede pasar a {hacia}.");
@@ -117,7 +119,14 @@ public class TurnoService(
         }
 
         await uow.GuardarAsync(cancellationToken);
-        return Mapear(turno);
+        return await MapearConNotasAsync(turno, cancellationToken);
+    }
+
+    // Solo un turno atendido puede tener notas; igual se cuentan siempre para no depender de eso.
+    private async Task<TurnoDto> MapearConNotasAsync(Turno turno, CancellationToken cancellationToken)
+    {
+        var cantidades = await notas.ContarPorTurnoAsync([turno.Id], cancellationToken);
+        return Mapear(turno, cantidades.GetValueOrDefault(turno.Id));
     }
 
     private async Task<Turno> ObtenerEntidadAsync(int id, CancellationToken cancellationToken)
@@ -172,7 +181,7 @@ public class TurnoService(
         };
     }
 
-    private static TurnoDto Mapear(Turno t) => new()
+    internal static TurnoDto Mapear(Turno t, int cantidadNotas = 0) => new()
     {
         Id = t.Id,
         PacienteId = t.PacienteId,
@@ -185,6 +194,7 @@ public class TurnoService(
         Estado = t.Estado,
         CanceladoPor = t.CanceladoPor,
         MotivoCancelacion = t.MotivoCancelacion,
-        Notas = t.Notas
+        Notas = t.Notas,
+        CantidadNotas = cantidadNotas
     };
 }

@@ -33,7 +33,9 @@ public class TurnoServiceTests
         _palermo = _sucursales.Agregar("Palermo");
     }
 
-    private TurnoService Servicio() => new(_turnos, _pacientes, _sucursales, _config, _avisos, _uow, _reloj);
+    private readonly NotaConsultaRepositoryFake _notas = new();
+
+    private TurnoService Servicio() => new(_turnos, _pacientes, _sucursales, _config, _avisos, _notas, _uow, _reloj);
 
     private TurnoGuardarDto Dto(int hora, int minuto = 0, int? duracion = null, int? sucursalId = null, int dia = 2) => new()
     {
@@ -324,5 +326,20 @@ public class TurnoServiceTests
         var (turno, tipo) = _avisos.Encolados.Last();
         Assert.Equal(CteMensajesWhatsapp.TipoAviso, tipo);
         Assert.Equal(beto.Id, turno.PacienteId);
+    }
+
+    [Fact]
+    public async Task La_agenda_trae_la_cantidad_de_notas_vigentes_de_cada_turno()
+    {
+        var conNotas = await Servicio().CrearAsync(Dto(15));
+        var sinNotas = await Servicio().CrearAsync(Dto(17));
+        _notas.Agregar(new NotaConsulta { PacienteId = _ana.Id, TurnoId = conNotas.Id, Texto = "nota" });
+        _notas.Agregar(new NotaConsulta { PacienteId = _ana.Id, TurnoId = conNotas.Id, Texto = "anulada", Anulada = true });
+
+        var lista = await Servicio().ListarAsync(new DateTimeOffset(2026, 12, 2, 0, 0, 0, Ar), new DateTimeOffset(2026, 12, 3, 0, 0, 0, Ar));
+
+        Assert.Equal(1, lista.Single(t => t.Id == conNotas.Id).CantidadNotas);
+        Assert.Equal(0, lista.Single(t => t.Id == sinNotas.Id).CantidadNotas);
+        Assert.Equal(1, (await Servicio().ObtenerAsync(conNotas.Id)).CantidadNotas);
     }
 }

@@ -12,8 +12,14 @@ namespace Web.Controllers;
 [Route("api/pacientes")]
 [Authorize(Policy = "Tenant")]
 [Tags("Pacientes")]
-public class PacienteController(IPacienteService pacienteService) : ControllerBase
+public class PacienteController(IPacienteService pacienteService, IFichaPacienteService fichaService) : ControllerBase
 {
+    [HttpGet("{id:int}/ficha")]
+    [SwaggerOperation(Summary = "Ficha del paciente",
+        Description = "Datos, resumen (turnos, atendidos, ausentes, cancelados, próximo turno) y todos sus turnos del más nuevo al más viejo, cada uno con la cantidad de notas de consulta.")]
+    public async Task<ActionResult<BaseResponse<FichaPacienteDto>>> Ficha(int id, CancellationToken cancellationToken)
+        => Ok(BaseResponse<FichaPacienteDto>.Ok(await fichaService.ObtenerAsync(id, cancellationToken)));
+
     [HttpGet]
     [SwaggerOperation(Summary = "Listar / buscar pacientes",
         Description = "Pacientes de la cuenta, paginado y ordenado por apellido. 'buscar' filtra por nombre, apellido o celular. Por defecto solo activos.")]

@@ -66,7 +66,7 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
   `PagoSuscripcion`, `Superadmin`.
 - Entidades de dominio: implementan `ITenantEntity` → global query filter por `TenantId` y
   autocompletado en los inserts. Hoy: `Sucursal` (= consultorio), `Usuario`, `Configuracion`,
-  `Paciente`, `Turno`, `MensajeWhatsapp`, `MensajeEntrante`.
+  `Paciente`, `Turno`, `MensajeWhatsapp`, `MensajeEntrante`, `NotaConsulta`, `NotaConsultaVersion`.
 - JWT de la cuenta lleva `tenant_id` + `rol`; el del superadmin no lleva `tenant_id`
   (`tipo_acceso=plataforma`). Policies `Tenant` y `Superadmin`.
 - `TenantSuspendidoMiddleware` → 403 `TENANT_SUSPENDIDO`.
@@ -83,6 +83,21 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
 - Dos turnos vivos (no cancelados) no se superponen: chequeo en `TurnoService` + exclusion
   constraint `EX_Turnos_SinSolapamiento` (btree_gist, rango `[Inicio, Fin)`), que el UnitOfWork
   traduce a 409. Mover un turno de horario (cambiar el inicio) lo vuelve a `pendiente`; estirarlo no.
+
+## 5.1 Notas de consulta (fase A de historia clínica)
+
+- `NotaConsulta`: texto libre del profesional sobre un paciente, atada a un turno `atendido` del mismo
+  paciente o suelta (`TurnoId` null). Varias por turno. Solo el rol `admin` (`NotaConsultaService`
+  responde 403 a cualquier otro). No sale nunca por WhatsApp; la agenda solo ve `TurnoDto.CantidadNotas`.
+- Se edita solo dentro de `CteNotasConsulta.HorasEdicion` (24 h) desde el alta, con `version` para
+  detectar ediciones cruzadas (409); cada edición guarda el texto anterior en `NotaConsultaVersion`.
+  Después solo se anula con motivo (el texto queda). **Nunca se borra:** no hay endpoint DELETE y la
+  migración `NotasConsulta` agrega triggers que rechazan DELETE/TRUNCATE de notas y UPDATE/DELETE de versiones.
+- Ficha del paciente: `GET /api/pacientes/{id}/ficha` (resumen + turnos con cantidad de notas). Las
+  notas van aparte: `GET|POST /api/pacientes/{id}/notas`, `PUT /api/notas/{id}`,
+  `POST /api/notas/{id}/anular`, `GET /api/notas/{id}/versiones`.
+- Todavía no es historia clínica formal (Ley 26.529): faltan exportación, firma, auditoría de lecturas
+  y adjuntos (fases B y C). No llamarla "historia clínica" en el producto hasta entonces.
 
 ## 6. WhatsApp
 

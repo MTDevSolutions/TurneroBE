@@ -11,6 +11,10 @@ public interface ITurnoRepository
     /// <summary>Turno de la cuenta (trackeado, con paciente y consultorio); null si no existe.</summary>
     Task<Turno?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
+    /// <summary>Todos los turnos del paciente (incluidos los cancelados), del más nuevo al más viejo,
+    /// con paciente y consultorio. Para la ficha del paciente.</summary>
+    Task<List<Turno>> ListarPorPacienteAsync(int pacienteId, CancellationToken cancellationToken = default);
+
     /// <summary>True si algún turno vivo de la cuenta se superpone con [inicio, fin).</summary>
     Task<bool> HaySolapamientoAsync(DateTime inicioUtc, DateTime finUtc, int? excluirId, CancellationToken cancellationToken = default);
 

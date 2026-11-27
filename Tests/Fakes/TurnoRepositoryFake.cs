@@ -18,6 +18,9 @@ public class TurnoRepositoryFake : ITurnoRepository
     public Task<Turno?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         => Task.FromResult(Turnos.FirstOrDefault(t => t.Id == id));
 
+    public Task<List<Turno>> ListarPorPacienteAsync(int pacienteId, CancellationToken cancellationToken = default)
+        => Task.FromResult(Turnos.Where(t => t.PacienteId == pacienteId).OrderByDescending(t => t.Inicio).ToList());
+
     public Task<bool> HaySolapamientoAsync(DateTime inicioUtc, DateTime finUtc, int? excluirId, CancellationToken cancellationToken = default)
         => Task.FromResult(Turnos.Any(t =>
             t.Estado != CteEstadosTurno.Cancelado && t.Id != excluirId && t.Inicio < finUtc && t.Fin > inicioUtc));

@@ -56,5 +56,6 @@ public partial class TurneroContext
         // Entidades de dominio (con tenant_id) — ver TurneroContext.Dominio.cs
         ConfigurarDominio(modelBuilder);
         ConfigurarWhatsapp(modelBuilder);
+        ConfigurarNotas(modelBuilder);
     }
 }
