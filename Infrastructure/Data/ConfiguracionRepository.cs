@@ -10,6 +10,13 @@ public class ConfiguracionRepository(TurneroContext context) : IConfiguracionRep
     public async Task<Configuracion?> ObtenerAsync(CancellationToken cancellationToken = default)
         => await context.Configuraciones.FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<string?> ObtenerColorAsync(int tenantId, CancellationToken cancellationToken = default)
+        => await context.Configuraciones
+            .IgnoreQueryFilters()
+            .Where(c => c.TenantId == tenantId)
+            .Select(c => c.ColorPrincipal)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public void Agregar(Configuracion configuracion)
         => context.Configuraciones.Add(configuracion); // TenantId lo completa SaveChanges
 }

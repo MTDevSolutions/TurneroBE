@@ -27,4 +27,13 @@ public class ConfiguracionController(IConfiguracionService configuracionService)
         var actualizada = await configuracionService.ActualizarAsync(dto, cancellationToken);
         return Ok(BaseResponse<ConfiguracionDto>.Ok(actualizada, "Configuración actualizada.", true));
     }
+
+    [HttpPut("color")]
+    [SwaggerOperation(Summary = "Cambiar el color de la app",
+        Description = "Guarda la paleta del color principal de la cuenta: rosa, lavanda, coral, salvia o celeste. 400 si es otra.")]
+    public async Task<ActionResult<BaseResponse<ConfiguracionDto>>> ActualizarColor([FromBody] ColorPrincipalDto dto, CancellationToken cancellationToken)
+    {
+        var actualizada = await configuracionService.ActualizarColorAsync(dto.Color, cancellationToken);
+        return Ok(BaseResponse<ConfiguracionDto>.Ok(actualizada, "Color guardado."));
+    }
 }

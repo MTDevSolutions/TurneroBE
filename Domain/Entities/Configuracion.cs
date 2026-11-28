@@ -19,4 +19,7 @@ public class Configuracion : ITenantEntity
 
     /// <summary>Llave general de los avisos automáticos por WhatsApp.</summary>
     public bool AvisosWhatsappActivos { get; set; } = true;
+
+    /// <summary>Paleta del color principal de la app (CteColores). Es de la cuenta, no del dispositivo.</summary>
+    public string ColorPrincipal { get; set; } = "rosa";
 }

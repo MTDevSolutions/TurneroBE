@@ -35,6 +35,13 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("AvisosWhatsappActivos")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("ColorPrincipal")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("rosa");
+
                     b.Property<int>("DuracionTurnoMinutos")
                         .HasColumnType("integer");
 

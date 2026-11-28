@@ -11,5 +11,8 @@ public class ConfiguracionRepositoryFake(Configuracion? existente = null) : ICon
     public Task<Configuracion?> ObtenerAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(Actual);
 
+    public Task<string?> ObtenerColorAsync(int tenantId, CancellationToken cancellationToken = default)
+        => Task.FromResult(Actual?.TenantId == tenantId ? Actual.ColorPrincipal : null);
+
     public void Agregar(Configuracion configuracion) => Actual = configuracion;
 }
