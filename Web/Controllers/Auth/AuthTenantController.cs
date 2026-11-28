@@ -18,6 +18,7 @@ public class AuthTenantController(
     AutenticacionUsuario autenticacion,
     JwtTokenGenerator jwtTokenGenerator,
     ITenantEstadoService tenantEstadoService,
+    IConfiguracionService configuracionService,
     IConfiguration configuration) : ControllerBase
 {
     [AllowAnonymous]
@@ -50,7 +51,8 @@ public class AuthTenantController(
             Rol = usuario.Rol,
             TenantId = usuario.TenantId,
             ExpiraEn = expira,
-            TerminosPendientes = versionAceptada != CteTerminos.VersionVigente
+            TerminosPendientes = versionAceptada != CteTerminos.VersionVigente,
+            ColorPrincipal = await configuracionService.ObtenerColorAsync(usuario.TenantId, cancellationToken)
         };
 
         return Ok(BaseResponse<UsuarioLoginResponseDto>.Ok(response, $"Bienvenido {usuario.Nombre}", true));
