@@ -15,11 +15,17 @@ public static class HoraArgentina
         => TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Zona);
 
     /// <summary>"lunes 1/12 a las 15:30"</summary>
-    public static string FechaYHora(DateTime utc)
+    public static string FechaYHora(DateTime utc) => $"{Fecha(utc)} a las {Hora(utc)}";
+
+    /// <summary>"lunes 1/12"</summary>
+    public static string Fecha(DateTime utc)
     {
         var local = ALocal(utc);
-        return $"{Dias[(int)local.DayOfWeek]} {local.Day}/{local.Month} a las {local:HH:mm}";
+        return $"{Dias[(int)local.DayOfWeek]} {local.Day}/{local.Month}";
     }
+
+    /// <summary>"15:30"</summary>
+    public static string Hora(DateTime utc) => ALocal(utc).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
 
     private static TimeZoneInfo Resolver()
     {

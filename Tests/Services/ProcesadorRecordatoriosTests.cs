@@ -13,6 +13,7 @@ public class ProcesadorRecordatoriosTests
     private readonly TenantRepositoryFake _tenants = new();
     private readonly MensajeWhatsappRepositoryFake _mensajes = new();
     private readonly UnitOfWorkFake _uow = new();
+    private readonly PlantillaMensajeRepositoryFake _plantillas = new();
 
     public ProcesadorRecordatoriosTests()
     {
@@ -22,7 +23,7 @@ public class ProcesadorRecordatoriosTests
         _turnos.Configuraciones[2] = new Configuracion { TenantId = 2, HorasRecordatorio = 2, AvisosWhatsappActivos = true };
     }
 
-    private ProcesadorRecordatorios Procesador() => new(_turnos, _tenants, _mensajes, _uow);
+    private ProcesadorRecordatorios Procesador() => new(_turnos, _tenants, _mensajes, _plantillas, _uow);
 
     private Turno Turno(int tenantId, DateTime inicio, string estado = CteEstadosTurno.Pendiente)
     {
@@ -88,5 +89,20 @@ public class ProcesadorRecordatoriosTests
         var texto = Assert.Single(_mensajes.Mensajes).Texto;
         Assert.Contains("¡Te esperamos!", texto);
         Assert.DoesNotContain("*SÍ*", texto);
+    }
+
+    [Fact]
+    public async Task Cada_cuenta_usa_su_propio_texto_de_recordatorio()
+    {
+        _plantillas.Con(1, CtePlantillasMensaje.Recordatorio, "Cuenta uno: {paciente}");
+        var uno = Turno(1, Ahora.AddHours(20));
+        var dos = Turno(2, Ahora.AddHours(1));
+
+        await Procesador().ProcesarAsync(Ahora, default);
+
+        var deUno = _mensajes.Mensajes.Single(m => m.TurnoId == uno.Id).Texto;
+        var deDos = _mensajes.Mensajes.Single(m => m.TurnoId == dos.Id).Texto;
+        Assert.Equal($"Cuenta uno: Ana\n\n{CtePlantillasMensaje.PiePedidoConfirmacion}", deUno);
+        Assert.StartsWith("¡Hola Ana! Te recordamos tu turno con Lic. Dos", deDos);
     }
 }

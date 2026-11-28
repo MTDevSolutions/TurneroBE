@@ -80,6 +80,8 @@ public static class DependencyInjection
         services.AddScoped<IMensajeWhatsappRepository, MensajeWhatsappRepository>();
         services.AddScoped<IMensajeEntranteRepository, MensajeEntranteRepository>();
         services.AddScoped<IRespuestaWhatsappRepository, RespuestaWhatsappRepository>();
+        services.AddScoped<IPlantillaMensajeRepository, PlantillaMensajeRepository>();
+        services.AddScoped<IPlantillaMensajeService, PlantillaMensajeService>();
         services.AddScoped<IAvisoTurnoService, AvisoTurnoService>();
         services.AddScoped<IRespuestaWhatsappService, RespuestaWhatsappService>();
         services.AddScoped<IWhatsappConexionService, WhatsappConexionService>();

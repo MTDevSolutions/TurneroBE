@@ -24,6 +24,7 @@ public class RespuestaWhatsappService(
     IRespuestaWhatsappRepository respuestas,
     IMensajeEntranteRepository entrantes,
     IMensajeWhatsappRepository salientes,
+    IPlantillaMensajeRepository plantillas,
     IUnitOfWork uow,
     TimeProvider reloj,
     ILogger<RespuestaWhatsappService> logger) : IRespuestaWhatsappService
@@ -86,13 +87,13 @@ public class RespuestaWhatsappService(
         };
         entrantes.Agregar(entrante);
 
-        entrante.Resultado = await AplicarAsync(entrante, tenantId, numero, ahora, cancellationToken);
+        entrante.Resultado = await AplicarAsync(entrante, tenantId, tenant.Nombre, numero, ahora, cancellationToken);
 
         await uow.GuardarTraduciendoDuplicadoAsync(CteIndices.MensajeEntranteGateway,
             "Ese mensaje ya se procesó.", cancellationToken);
     }
 
-    private async Task<string> AplicarAsync(MensajeEntrante entrante, int tenantId, string numero, DateTime ahora, CancellationToken ct)
+    private async Task<string> AplicarAsync(MensajeEntrante entrante, int tenantId, string profesional, string numero, DateTime ahora, CancellationToken ct)
     {
         var paciente = await respuestas.PacientePorCelularAsync(tenantId, numero, ct);
         if (paciente is null)
@@ -103,14 +104,20 @@ public class RespuestaWhatsappService(
         if (turno is null)
             return CteRespuestasWhatsapp.SinTurno;
 
-        switch (InterpreteRespuesta.Interpretar(entrante.Texto))
+        var intencion = InterpreteRespuesta.Interpretar(entrante.Texto);
+        var propios = intencion == IntencionRespuesta.NoEntendida
+            ? new Dictionary<string, string>()
+            : await plantillas.TextosAsync(tenantId, ct);
+        string Texto(string clave) => TextosWhatsapp.Armar(clave, turno, profesional, propios);
+
+        switch (intencion)
         {
             case IntencionRespuesta.Confirmar:
                 entrante.TurnoId = turno.Id;
                 if (turno.Estado == CteEstadosTurno.Pendiente)
                     turno.Estado = CteEstadosTurno.Confirmado;
                 Responder(tenantId, turno, CteMensajesWhatsapp.TipoConfirmacionRecibida, turno.Paciente.Celular,
-                    TextosWhatsapp.ConfirmacionRecibida(turno), ahora);
+                    Texto(CtePlantillasMensaje.ConfirmacionRecibida), ahora);
                 return CteRespuestasWhatsapp.Confirmo;
 
             case IntencionRespuesta.Cancelar:
@@ -119,11 +126,11 @@ public class RespuestaWhatsappService(
                 turno.CanceladoPor = CteEstadosTurno.CanceladoPorPaciente;
                 turno.MotivoCancelacion = MotivoCancelacion;
                 Responder(tenantId, turno, CteMensajesWhatsapp.TipoCancelacionRecibida, turno.Paciente.Celular,
-                    TextosWhatsapp.CancelacionRecibida(turno), ahora);
+                    Texto(CtePlantillasMensaje.CancelacionRecibida), ahora);
 
                 foreach (var celular in await respuestas.CelularesAdminsAsync(tenantId, ct))
                     Responder(tenantId, turno, CteMensajesWhatsapp.TipoAvisoProfesional, celular,
-                        TextosWhatsapp.AvisoProfesional(turno), ahora);
+                        Texto(CtePlantillasMensaje.AvisoProfesional), ahora);
                 return CteRespuestasWhatsapp.Cancelo;
 
             default:
