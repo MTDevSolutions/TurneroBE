@@ -495,8 +495,18 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<DateTime?>("WhatsappEstadoDesde")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WhatsappEstadoSesion")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<int?>("WhatsappTelefonoId")
                         .HasColumnType("integer");
+
+                    b.Property<long?>("WhatsappUltimoAvisoId")
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 

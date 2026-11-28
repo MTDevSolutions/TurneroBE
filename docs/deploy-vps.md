@@ -303,6 +303,25 @@ docker exec turnix_db psql -U postgres -d turnix -c \
 | Gateway: error de conexión | `turnix_backend` no está en la red `wabix-gateway_default` o `webhookUrl` mal escrita. |
 | Turnix guarda el mensaje pero no toca el turno | Ver `Resultado`: el número no coincide con ningún paciente o el paciente no tiene un turno vivo próximo. |
 
+### 10.6 Aviso de WhatsApp desconectado
+
+El gateway vigila la sesión de cada número y, cuando se cae, WhatsApp la cierra o vuelve, avisa a Turnix en
+`POST /api/webhooks/whatsapp/sesion` (mismo `X-Webhook-Secret` que las respuestas). Turnix lo guarda en la cuenta
+y el front muestra el cartel "Tu WhatsApp se desconectó" (`GET /api/whatsapp/alerta`). Requiere WabixGatewayBE con
+el monitor de sesiones desplegado. Se configura **una vez por empresa** (no por teléfono):
+
+```bash
+cd ~/wabix-gateway
+set -a; source .env; set +a
+WEBHOOK_SECRET=$(grep -E '^WHATSAPP_WEBHOOK_SECRET=' ~/turnix/.env | cut -d= -f2-)
+curl -s -X PUT https://wabix-gateway.mtdevapp.com/api/admin/empresas/3/avisos \
+  -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d "{\"url\":\"http://turnix_backend:5007/api/webhooks/whatsapp/sesion\",\"secret\":\"$WEBHOOK_SECRET\"}"; echo
+```
+
+En menos de un minuto llega el primer aviso de cada número (sincroniza el estado actual). Para verlo:
+`docker exec turnix_db psql -U postgres -d turnix -c 'select "Id","WhatsappEstadoSesion","WhatsappEstadoDesde" from "Tenants"'`.
+
 ## 11. Backups
 
 El backup diario cifrado del VPS (`CellFixBE/scripts/backup-db.sh`, cron) detecta solo todos los contenedores

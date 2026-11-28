@@ -83,6 +83,7 @@ public static class DependencyInjection
         services.AddScoped<IAvisoTurnoService, AvisoTurnoService>();
         services.AddScoped<IRespuestaWhatsappService, RespuestaWhatsappService>();
         services.AddScoped<IWhatsappConexionService, WhatsappConexionService>();
+        services.AddScoped<IAvisoSesionWhatsappService, AvisoSesionWhatsappService>();
         services.AddScoped<IHistorialWhatsappService, HistorialWhatsappService>();
         services.AddScoped<ProcesadorEnvioWhatsapp>();
         services.AddScoped<ProcesadorRecordatorios>();

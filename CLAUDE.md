@@ -113,6 +113,10 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
   (`UX_MensajesEntrantes_GatewayMensajeId`) y guarda todo en `MensajesEntrantes`. Se aplica al próximo
   turno vivo del paciente (por celular): Sí → confirmado; No → cancelado (`CanceladoPor = paciente`),
   se libera el horario y se avisa a los celulares de los admins. Otro texto no se contesta (`InterpreteRespuesta`).
+- **Desconexión:** el gateway avisa los cambios de sesión del número en `POST /api/webhooks/whatsapp/sesion`
+  (`AvisoSesionWhatsappService`): se guardan en `Tenant.WhatsappEstadoSesion/EstadoDesde/UltimoAvisoId` (un aviso
+  con id menor se ignora; cambiar de teléfono los resetea). `GET /api/whatsapp/alerta` dice si mostrar el cartel
+  (lee la base, no al bot). Por decisión del producto no se manda WhatsApp a la profesional: saldría del número caído.
 - Webhook y workers corren sin tenant en el request: usan `IgnoreQueryFilters()` con `TenantId` explícito.
 - Teléfonos se guardan normalizados para Argentina con `TelefonoWhatsappHelper` (549 + área + número).
 - Horarios de los textos en hora de Argentina (`HoraArgentina`).

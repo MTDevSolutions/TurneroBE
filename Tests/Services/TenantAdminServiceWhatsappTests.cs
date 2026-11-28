@@ -30,6 +30,32 @@ public class TenantAdminServiceWhatsappTests
     }
 
     [Fact]
+    public async Task Cambiar_de_telefono_olvida_el_estado_de_sesion_del_anterior()
+    {
+        _tenant.WhatsappTelefonoId = 3;
+        _tenant.WhatsappEstadoSesion = CteSesionWhatsapp.Deslogueado;
+        _tenant.WhatsappEstadoDesde = DateTime.UtcNow;
+        _tenant.WhatsappUltimoAvisoId = 40;
+
+        await Servicio().VincularWhatsappAsync(1, 7);
+
+        Assert.Null(_tenant.WhatsappEstadoSesion);
+        Assert.Null(_tenant.WhatsappEstadoDesde);
+        Assert.Null(_tenant.WhatsappUltimoAvisoId);
+    }
+
+    [Fact]
+    public async Task Revincular_el_mismo_telefono_conserva_el_estado()
+    {
+        _tenant.WhatsappTelefonoId = 7;
+        _tenant.WhatsappEstadoSesion = CteSesionWhatsapp.Deslogueado;
+
+        await Servicio().VincularWhatsappAsync(1, 7);
+
+        Assert.Equal(CteSesionWhatsapp.Deslogueado, _tenant.WhatsappEstadoSesion);
+    }
+
+    [Fact]
     public async Task Telefono_que_el_gateway_no_conoce_da_404()
     {
         _gateway.Existe = false;

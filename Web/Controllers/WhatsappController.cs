@@ -19,6 +19,12 @@ public class WhatsappController(IWhatsappConexionService conexionService) : Cont
     public async Task<ActionResult<BaseResponse<WhatsappEstadoDto>>> Estado(CancellationToken cancellationToken)
         => Ok(BaseResponse<WhatsappEstadoDto>.Ok(await conexionService.EstadoAsync(cancellationToken)));
 
+    [HttpGet("alerta")]
+    [SwaggerOperation(Summary = "Alerta de WhatsApp desconectado",
+        Description = "Si hay que mostrar el cartel de WhatsApp desconectado. Sale del último aviso del gateway, sin consultar al bot.")]
+    public async Task<ActionResult<BaseResponse<WhatsappAlertaDto>>> Alerta(CancellationToken cancellationToken)
+        => Ok(BaseResponse<WhatsappAlertaDto>.Ok(await conexionService.AlertaAsync(cancellationToken)));
+
     [HttpGet("qr")]
     [SwaggerOperation(Summary = "QR de vinculación",
         Description = "QR para vincular el WhatsApp de la cuenta (data-url PNG). Null si ya está conectado o no hay QR.")]
