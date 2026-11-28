@@ -13,9 +13,12 @@ public class ProcesadorRecordatorios(
     ITurnoRepository turnos,
     ITenantRepository tenants,
     IMensajeWhatsappRepository mensajes,
+    IPlantillaMensajeRepository plantillas,
     IUnitOfWork uow)
 {
     public const int MaxPorPasada = 100;
+
+    private static readonly Dictionary<string, string> SinTextosPropios = [];
 
     /// <summary>Devuelve cuántos recordatorios encoló.</summary>
     public async Task<int> ProcesarAsync(DateTime ahora, CancellationToken cancellationToken)
@@ -24,8 +27,10 @@ public class ProcesadorRecordatorios(
         if (lote.Count == 0)
             return 0;
 
-        var nombres = (await tenants.WhatsappInfoAsync(lote.Select(t => t.TenantId).Distinct().ToList(), cancellationToken))
+        var cuentas = lote.Select(t => t.TenantId).Distinct().ToList();
+        var nombres = (await tenants.WhatsappInfoAsync(cuentas, cancellationToken))
             .ToDictionary(t => t.TenantId, t => t.Nombre);
+        var textosPropios = await plantillas.TextosAsync(cuentas, cancellationToken);
 
         foreach (var turno in lote)
         {
@@ -36,7 +41,8 @@ public class ProcesadorRecordatorios(
                 TurnoId = turno.Id,
                 Tipo = CteMensajesWhatsapp.TipoRecordatorio,
                 Destino = turno.Paciente.Celular,
-                Texto = TextosWhatsapp.Recordatorio(turno, profesional),
+                Texto = TextosWhatsapp.Armar(TextosWhatsapp.ClaveRecordatorio(turno), turno, profesional,
+                    textosPropios.GetValueOrDefault(turno.TenantId) ?? SinTextosPropios),
                 Estado = CteMensajesWhatsapp.Pendiente,
                 ProximoIntentoEn = ahora,
                 CreadoEn = ahora,

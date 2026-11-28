@@ -24,6 +24,7 @@ public partial class TurneroContext
             entity.Property(e => e.Plan).HasMaxLength(50);
             entity.Property(e => e.FechaAlta).HasDefaultValueSql("now()");
             entity.Property(e => e.TerminosVersionAceptada).HasMaxLength(20);
+            entity.Property(e => e.WhatsappEstadoSesion).HasMaxLength(20);
 
             // Un teléfono del gateway es de una sola cuenta: si dos lo compartieran, una mandaría
             // avisos desde el número de la otra.

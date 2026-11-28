@@ -66,7 +66,8 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
   `PagoSuscripcion`, `Superadmin`.
 - Entidades de dominio: implementan `ITenantEntity` → global query filter por `TenantId` y
   autocompletado en los inserts. Hoy: `Sucursal` (= consultorio), `Usuario`, `Configuracion`,
-  `Paciente`, `Turno`, `MensajeWhatsapp`, `MensajeEntrante`, `NotaConsulta`, `NotaConsultaVersion`.
+  `Paciente`, `Turno`, `MensajeWhatsapp`, `MensajeEntrante`, `PlantillaMensaje`, `NotaConsulta`,
+  `NotaConsultaVersion`.
 - JWT de la cuenta lleva `tenant_id` + `rol`; el del superadmin no lleva `tenant_id`
   (`tipo_acceso=plataforma`). Policies `Tenant` y `Superadmin`.
 - `TenantSuspendidoMiddleware` → 403 `TENANT_SUSPENDIDO`.
@@ -83,6 +84,9 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
 - Dos turnos vivos (no cancelados) no se superponen: chequeo en `TurnoService` + exclusion
   constraint `EX_Turnos_SinSolapamiento` (btree_gist, rango `[Inicio, Fin)`), que el UnitOfWork
   traduce a 409. Mover un turno de horario (cambiar el inicio) lo vuelve a `pendiente`; estirarlo no.
+
+- `Configuracion.ColorPrincipal`: paleta del color de la app (`CteColores`: rosa, lavanda, coral, salvia,
+  celeste). Se cambia con `PUT /api/configuracion/color` y viaja en el login para pintar desde el arranque.
 
 ## 5.1 Notas de consulta (fase A de historia clínica)
 
@@ -108,11 +112,22 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
   horario, cancelación del profesional). `RecordatoriosWorker` (cada minuto) encola el recordatorio a
   `HorasRecordatorio` del inicio (`Turno.RecordatorioEncoladoEn` evita duplicarlo).
   `EnvioWhatsappWorker` (cada 5 s) reclama con `FOR UPDATE SKIP LOCKED` + lease, reintenta con backoff
-  y descarta si la cuenta está suspendida, sin términos vigentes o sin teléfono. Textos en `TextosWhatsapp`.
+  y descarta si la cuenta está suspendida, sin términos vigentes o sin teléfono.
+- **Textos editables** (igual que CellFix): los de fábrica viven en `CtePlantillasMensaje` y en
+  `PlantillasMensaje` solo está lo que la cuenta reescribió (restablecer = borrar la fila). Variables
+  `{paciente}`, `{apellido}`, `{profesional}`, `{fecha}`, `{hora}`, `{lugar}` (`PlantillaMensajeRenderer`;
+  una desconocida da 400). Los que piden respuesta llevan un **pie fijo no editable** con el "Respondé SÍ/NO",
+  porque de eso depende el flujo. El recordatorio tiene dos textos (sin confirmar / ya confirmado).
+  Endpoints `GET /api/whatsapp/plantillas`, `PUT|DELETE /api/whatsapp/plantillas/{clave}` (solo `admin`) y
+  `POST /api/whatsapp/plantillas/vista-previa`. Se arman en `TextosWhatsapp.Armar`; lo ya encolado no cambia.
 - **Entrada:** el webhook valida `X-Webhook-Secret`, deduplica por id del gateway
   (`UX_MensajesEntrantes_GatewayMensajeId`) y guarda todo en `MensajesEntrantes`. Se aplica al próximo
   turno vivo del paciente (por celular): Sí → confirmado; No → cancelado (`CanceladoPor = paciente`),
   se libera el horario y se avisa a los celulares de los admins. Otro texto no se contesta (`InterpreteRespuesta`).
+- **Desconexión:** el gateway avisa los cambios de sesión del número en `POST /api/webhooks/whatsapp/sesion`
+  (`AvisoSesionWhatsappService`): se guardan en `Tenant.WhatsappEstadoSesion/EstadoDesde/UltimoAvisoId` (un aviso
+  con id menor se ignora; cambiar de teléfono los resetea). `GET /api/whatsapp/alerta` dice si mostrar el cartel
+  (lee la base, no al bot). Por decisión del producto no se manda WhatsApp a la profesional: saldría del número caído.
 - Webhook y workers corren sin tenant en el request: usan `IgnoreQueryFilters()` con `TenantId` explícito.
 - Teléfonos se guardan normalizados para Argentina con `TelefonoWhatsappHelper` (549 + área + número).
 - Horarios de los textos en hora de Argentina (`HoraArgentina`).

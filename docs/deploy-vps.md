@@ -173,71 +173,154 @@ Probar: entrar a `https://turnix.mtdevapp.com` con la cuenta del paso 8 y acepta
 
 ## 10. WhatsApp (bot 4 en el gateway)
 
-Requiere el PR `deploy/bot-4-turnix` de WabixGatewayBE mergeado en `main` y **un número que no sea el
-personal de nadie** (Baileys no es un canal oficial: WhatsApp puede bloquearlo).
+Estado actual (2026-11-27): empresa **Turnix = id 3**, teléfono **id 5** (`+5493463586417`, número de prueba),
+bot `whatsapp-bot-4`, etiqueta `1` (la cuenta de prueba), modo webhook. Probado de punta a punta: aviso, Sí y No.
+
+Requiere el bot 4 en `main` de WabixGatewayBE y **un número que no sea el personal de nadie** (Baileys no es un
+canal oficial: WhatsApp puede bloquearlo).
+
+> **Trampa del `source .env`.** Para tener `$ADMIN_TOKEN` se carga el `.env` del gateway en la terminal. Desde ese
+> momento Docker Compose usa esas variables **por encima** de cualquier `.env`: al levantar Turnix toma el
+> `POSTGRES_PASSWORD` del gateway, y si `BOT_4_TELEFONO_ID` estaba vacío al cargarlo, el bot queda entregando a
+> `.../baileys/` sin id (404 en todos los entrantes). **Todo `docker compose up` de este paso va con
+> `env -i PATH="$PATH" HOME="$HOME"`**, igual que `scripts/deploy.sh`. Al terminar, cerrar esa sesión SSH.
+
+### 10.1 Traer el gateway y preparar variables
+
+En el VPS, `github.com` está mapeado en `~/.ssh/config` a la clave de **agrotrack**: el pull del gateway va con
+su clave explícita.
 
 ```bash
 cd ~/wabix-gateway
-GIT_SSH_COMMAND="ssh -i ~/.ssh/<deploy key del gateway>" git pull
-set -a; source .env; set +a      # para tener $ADMIN_TOKEN
-openssl rand -hex 32             # BOT_4_API_KEY
-openssl rand -hex 32             # BOT_4_SECRETO_ENTRANTE
+GIT_SSH_COMMAND="ssh -i ~/.ssh/wabix_deploy -o IdentitiesOnly=yes" git pull --ff-only
+set -a; source .env; set +a      # $ADMIN_TOKEN (y BOT_4_* si ya existen)
 GW=https://wabix-gateway.mtdevapp.com/api
+TENANT_ID=$(docker exec turnix_db psql -U postgres -d turnix -Atc 'select min("Id") from "Tenants"')
+WEBHOOK_SECRET=$(grep -E '^WHATSAPP_WEBHOOK_SECRET=' ~/turnix/.env | cut -d= -f2-)
+BOT_4_API_KEY=${BOT_4_API_KEY:-$(openssl rand -hex 32)}
+BOT_4_SECRETO_ENTRANTE=${BOT_4_SECRETO_ENTRANTE:-$(openssl rand -hex 32)}
+set_env() { if grep -q "^$2=" "$1"; then sed -i "s|^$2=.*|$2=$3|" "$1"; else echo "$2=$3" >> "$1"; fi; }
+```
 
-# Empresa
+### 10.2 Empresa, teléfono y API key
+
+```bash
+# Empresa (una sola vez; Turnix ya existe con id 3)
 curl -s -X POST $GW/admin/empresas -H "X-Admin-Token: $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" -d '{"nombre":"Turnix"}'
+  -H "Content-Type: application/json" -d '{"nombre":"Turnix"}'; echo
 
-# Teléfono en modo webhook (el id que devuelve es BOT_4_TELEFONO_ID)
-curl -s -X POST $GW/admin/telefonos -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{
-  "empresaId": <id de la empresa>,
-  "numero": "+549<numero del bot>",
-  "proveedor": "baileys",
-  "modoEntrega": "webhook",
-  "etiqueta": "<id de la cuenta de Turnix del paso 8>",
-  "baileysBaseUrl": "http://whatsapp-bot-4:3000",
-  "baileysApiKey": "<BOT_4_API_KEY>",
-  "secretoEntrante": "<BOT_4_SECRETO_ENTRANTE>",
-  "webhookUrl": "http://turnix_backend:5007/api/webhooks/whatsapp",
-  "webhookSecret": "<WHATSAPP_WEBHOOK_SECRET del .env de Turnix>"
-}'
+# Teléfono en modo webhook. Los secretos van en el body y el gateway nunca los devuelve.
+TEL_JSON=$(printf '{"empresaId":3,"numero":"+549<numero>","proveedor":"baileys","modoEntrega":"webhook","etiqueta":"%s","baileysBaseUrl":"http://whatsapp-bot-4:3000","baileysApiKey":"%s","secretoEntrante":"%s","webhookUrl":"http://turnix_backend:5007/api/webhooks/whatsapp","webhookSecret":"%s"}' \
+  "$TENANT_ID" "$BOT_4_API_KEY" "$BOT_4_SECRETO_ENTRANTE" "$WEBHOOK_SECRET")
+RESP_TEL=$(curl -s -X POST $GW/admin/telefonos -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content-Type: application/json" -d "$TEL_JSON")
+echo "$RESP_TEL"                 # tiene que decir "success":true; si no, ver 10.5
+TEL_ID=$(echo "$RESP_TEL" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
 
-# API key de la empresa: solo aparece en esta respuesta
-curl -s -X POST $GW/admin/empresas/<id de la empresa>/apikey -H "X-Admin-Token: $ADMIN_TOKEN"
+# Claves del bot en el .env del gateway (BOT_4_WEBHOOK_SECRET = WHATSAPP_WEBHOOK_SECRET de Turnix)
+[ -n "$TEL_ID" ] && set_env .env BOT_4_TELEFONO_ID "$TEL_ID"
+set_env .env BOT_4_API_KEY "$BOT_4_API_KEY"
+set_env .env BOT_4_SECRETO_ENTRANTE "$BOT_4_SECRETO_ENTRANTE"
+set_env .env BOT_4_WEBHOOK_SECRET "$WEBHOOK_SECRET"
+grep '^BOT_4_TELEFONO_ID=' .env  # tiene que tener número
+
+# API key de la empresa: solo aparece en esta respuesta; va directo al .env de Turnix sin mostrarse
+API_KEY=$(curl -s -X POST $GW/admin/empresas/3/apikey -H "X-Admin-Token: $ADMIN_TOKEN" | grep -o '"apiKey":"[^"]*"' | cut -d'"' -f4)
+set_env ~/turnix/.env WHATSAPP_GATEWAY_API_KEY "$API_KEY"
 ```
 
-Cargar `BOT_4_*` en `~/wabix-gateway/.env` y levantar **solo** el bot nuevo:
+### 10.3 Levantar el bot y recrear Turnix (con `env -i`)
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build whatsapp-bot-4
-docker compose -f docker-compose.prod.yml logs --tail 30 whatsapp-bot-4
+cd ~/wabix-gateway
+env -i PATH="$PATH" HOME="$HOME" docker compose -f docker-compose.prod.yml up -d --build whatsapp-bot-4
+docker inspect wabix-gateway-whatsapp-bot-4-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | grep API_WEBHOOK_URL
+# tiene que terminar en /baileys/<BOT_4_TELEFONO_ID>
+
+cd ~/turnix
+env -i PATH="$PATH" HOME="$HOME" docker compose -f docker-compose.prod.yml up -d backend
+docker logs turnix_backend 2>&1 | grep -i "sin configurar"   # no tiene que aparecer nada
 ```
 
-En Turnix: `WHATSAPP_GATEWAY_API_KEY=<la API key>` en `~/turnix/.env` y recrear el backend:
+### 10.4 Vincular a la cuenta y escanear el QR
+
+Como superadmin (Swagger o curl con el `$TOKEN` del paso 8): `PUT /api/tenants/<id de la cuenta>/whatsapp` con
+`{"telefonoId": <BOT_4_TELEFONO_ID>}`. Después, con el celular del número: en Turnix, **Configuración → Tu
+WhatsApp**, escanear el QR. El celular no tiene que tener vinculado otro bot (ver 10.5).
+
+### 10.5 Si el número ya está dado de alta en otra empresa
+
+El alta responde `El número ... ya está dado de alta`. Un número es único en todo el gateway (también los
+inactivos), no se puede mover de empresa ni borrar por API. Así se pasó el número de prueba de CellFix
+(teléfono 3, empresa 2, bot 2) a Turnix:
 
 ```bash
-cd ~/turnix && docker compose -f docker-compose.prod.yml up -d backend
+# 1. Encontrarlo (no muestra secretos)
+for e in 1 2 3 4 5 6; do r=$(curl -s $GW/admin/empresas/$e/telefonos -H "X-Admin-Token: $ADMIN_TOKEN"); \
+  echo "$r" | grep -q '<numero sin +>' && echo "empresa $e: $r"; done
+
+# 2. Desactivarlo con la API (PUT con el mismo numero, proveedor, modo, etiqueta y baseUrl que tenía)
+curl -s -X PUT $GW/admin/telefonos/<id> -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"numero":"+<numero>","activo":false,"proveedor":"baileys","modoEntrega":"cola","etiqueta":"<etiqueta>","baileysBaseUrl":"http://whatsapp-bot-<n>:3000"}'
+
+# 3. En el celular: WhatsApp → Dispositivos vinculados → cerrar la sesión del bot viejo. En el VPS, frenarlo:
+env -i PATH="$PATH" HOME="$HOME" docker compose -f docker-compose.prod.yml stop whatsapp-bot-<n>
+
+# 4. Liberar el número sin borrar el historial (backup antes; numero es varchar(20))
+docker exec wabix-gateway-postgres-1 pg_dump -U wabix -d wabix_gateway -t telefonos | gzip > ~/backups/wabix-telefonos-$(date +%F-%H%M).sql.gz
+docker exec wabix-gateway-postgres-1 psql -U wabix -d wabix_gateway -c \
+  "UPDATE telefonos SET numero = 'baja-<numero sin +>' WHERE id = <id> AND numero = '<numero sin +>' AND activo = false;"
+# tiene que decir UPDATE 1; después repetir el alta de 10.2
 ```
 
-Vincular el teléfono a la cuenta (superadmin, con el `$TOKEN` del paso 8):
-
-```bash
-curl -s -X PUT $API/tenants/<id de la cuenta>/whatsapp -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"telefonoId": <BOT_4_TELEFONO_ID>}'
-```
-
-Por último, desde el celular del bot: en Turnix, **Configuración → Tu WhatsApp**, escanear el QR.
+El producto que usaba ese teléfono (CellFix, por id) deja de mandar desde ese número. Si el número también estaba
+vinculado a otro sistema fuera del gateway (pasó con el bot de Bille, `~/appgastos`, servicio `whatsapp-bot`),
+frenarlo y cerrar su sesión en el celular: si no, ve y contesta las respuestas de los pacientes.
 
 ### Prueba de punta a punta
 
 1. Cargar un paciente con **otro** celular (el tuyo) y darle un turno: llega el aviso.
-2. Responder **Sí**: el turno pasa a confirmado en la agenda.
-3. Dar otro turno y responder **No**: se cancela, se libera el horario y llega el aviso al `adminCelular`.
+2. Responder **Sí** (también sirven "si", "1", 👍): el turno pasa a confirmado en la agenda.
+3. Dar otro turno y responder **No** ("2", 👎): se cancela, se libera el horario y llega el aviso al `adminCelular`.
 4. Un turno para dentro de menos horas que el recordatorio configurado: llega el recordatorio.
 
-Si las respuestas no llegan: `docker logs turnix_backend | grep -i webhook` (401 = secreto distinto entre
-`WHATSAPP_WEBHOOK_SECRET` y el `webhookSecret` del teléfono; sin requests = revisar `webhookUrl` y que
-`turnix_backend` esté en la red `wabix-gateway_default`).
+### Si las respuestas no llegan
+
+El texto casi nunca es el problema (el intérprete acepta Sí/No con o sin tilde, 1/2 y emojis). Ver dónde se corta
+**celular → bot 4 → gateway → Turnix**:
+
+```bash
+docker logs wabix-gateway-whatsapp-bot-4-1 --since 1h 2>&1 | grep -i webhook | tail -5
+docker exec wabix-gateway-postgres-1 psql -U wabix -d wabix_gateway -c \
+  "select id, left(texto,20), entregado_en, intentos, left(ultimo_error,80) from mensajes_entrantes where telefono_id = <id> order by id desc limit 5;"
+docker exec turnix_db psql -U postgres -d turnix -c \
+  'select "Id", left("Texto",20), "Resultado", "TurnoId" from "MensajesEntrantes" order by "Id" desc limit 5;'
+```
+
+| Síntoma | Causa |
+|---|---|
+| Bot: `el webhook de la API respondió con error`, `status 404`; nada en el gateway | El bot se levantó con `BOT_4_TELEFONO_ID` vacío (trampa del `source .env`). Recrearlo con `env -i ... up -d --force-recreate whatsapp-bot-4` (la sesión se conserva). |
+| Gateway: `entregado_en` vacío con error 401 | `webhookSecret` del teléfono ≠ `WHATSAPP_WEBHOOK_SECRET` de Turnix. |
+| Gateway: error de conexión | `turnix_backend` no está en la red `wabix-gateway_default` o `webhookUrl` mal escrita. |
+| Turnix guarda el mensaje pero no toca el turno | Ver `Resultado`: el número no coincide con ningún paciente o el paciente no tiene un turno vivo próximo. |
+
+### 10.6 Aviso de WhatsApp desconectado
+
+El gateway vigila la sesión de cada número y, cuando se cae, WhatsApp la cierra o vuelve, avisa a Turnix en
+`POST /api/webhooks/whatsapp/sesion` (mismo `X-Webhook-Secret` que las respuestas). Turnix lo guarda en la cuenta
+y el front muestra el cartel "Tu WhatsApp se desconectó" (`GET /api/whatsapp/alerta`). Requiere WabixGatewayBE con
+el monitor de sesiones desplegado. Se configura **una vez por empresa** (no por teléfono):
+
+```bash
+cd ~/wabix-gateway
+set -a; source .env; set +a
+WEBHOOK_SECRET=$(grep -E '^WHATSAPP_WEBHOOK_SECRET=' ~/turnix/.env | cut -d= -f2-)
+curl -s -X PUT https://wabix-gateway.mtdevapp.com/api/admin/empresas/3/avisos \
+  -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d "{\"url\":\"http://turnix_backend:5007/api/webhooks/whatsapp/sesion\",\"secret\":\"$WEBHOOK_SECRET\"}"; echo
+```
+
+En menos de un minuto llega el primer aviso de cada número (sincroniza el estado actual). Para verlo:
+`docker exec turnix_db psql -U postgres -d turnix -c 'select "Id","WhatsappEstadoSesion","WhatsappEstadoDesde" from "Tenants"'`.
 
 ## 11. Backups
 

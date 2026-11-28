@@ -12,4 +12,7 @@ public class UsuarioLoginResponseDto
     /// <summary>True si la cuenta no aceptó los términos vigentes: el front muestra la pantalla
     /// de aceptación antes que nada (el resto de la API responde 403 TERMINOS_PENDIENTES).</summary>
     public bool TerminosPendientes { get; set; }
+
+    /// <summary>Paleta del color principal de la cuenta, para pintar la app desde el login.</summary>
+    public string ColorPrincipal { get; set; } = null!;
 }

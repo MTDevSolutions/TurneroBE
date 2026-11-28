@@ -35,6 +35,13 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("AvisosWhatsappActivos")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("ColorPrincipal")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("rosa");
+
                     b.Property<int>("DuracionTurnoMinutos")
                         .HasColumnType("integer");
 
@@ -380,6 +387,41 @@ namespace Infrastructure.Migrations
                     b.ToTable("PagosSuscripcion");
                 });
 
+            modelBuilder.Entity("Domain.Entities.PlantillaMensaje", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ActualizadoEn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Clave")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(800)
+                        .HasColumnType("character varying(800)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Clave")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PlantillasMensaje_TenantId_Clave");
+
+                    b.ToTable("PlantillasMensaje");
+                });
+
             modelBuilder.Entity("Domain.Entities.Sucursal", b =>
                 {
                     b.Property<int>("Id")
@@ -495,8 +537,18 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<DateTime?>("WhatsappEstadoDesde")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WhatsappEstadoSesion")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<int?>("WhatsappTelefonoId")
                         .HasColumnType("integer");
+
+                    b.Property<long?>("WhatsappUltimoAvisoId")
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
@@ -747,6 +799,16 @@ namespace Infrastructure.Migrations
                         .HasConstraintName("FK_PagosSuscripcion_Tenants");
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Domain.Entities.PlantillaMensaje", b =>
+                {
+                    b.HasOne("Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_PlantillasMensaje_Tenants");
                 });
 
             modelBuilder.Entity("Domain.Entities.Sucursal", b =>

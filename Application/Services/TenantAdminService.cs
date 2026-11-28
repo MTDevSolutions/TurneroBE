@@ -142,6 +142,15 @@ public class TenantAdminService(
                 throw AppException.RegistroNoExiste();
         }
 
+        // El estado de sesión que se conocía era del teléfono anterior: el nuevo arranca sin dato
+        // hasta que el gateway avise.
+        if (tenant.WhatsappTelefonoId != telefonoId)
+        {
+            tenant.WhatsappEstadoSesion = null;
+            tenant.WhatsappEstadoDesde = null;
+            tenant.WhatsappUltimoAvisoId = null;
+        }
+
         tenant.WhatsappTelefonoId = telefonoId;
         await uow.GuardarTraduciendoDuplicadoAsync(CteIndices.TenantWhatsappTelefono,
             "Ese teléfono ya está vinculado a otra cuenta.", cancellationToken);

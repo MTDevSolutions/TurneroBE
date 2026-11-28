@@ -71,6 +71,8 @@ public partial class TurneroContext
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_Configuraciones_Tenants");
 
+            entity.Property(e => e.ColorPrincipal).IsRequired().HasMaxLength(20).HasDefaultValue("rosa");
+
             // Una sola configuración por cuenta.
             entity.HasIndex(e => e.TenantId).IsUnique().HasDatabaseName("UX_Configuraciones_TenantId");
         });
