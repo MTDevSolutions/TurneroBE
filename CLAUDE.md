@@ -84,6 +84,9 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
   constraint `EX_Turnos_SinSolapamiento` (btree_gist, rango `[Inicio, Fin)`), que el UnitOfWork
   traduce a 409. Mover un turno de horario (cambiar el inicio) lo vuelve a `pendiente`; estirarlo no.
 
+- `Configuracion.ColorPrincipal`: paleta del color de la app (`CteColores`: rosa, lavanda, coral, salvia,
+  celeste). Se cambia con `PUT /api/configuracion/color` y viaja en el login para pintar desde el arranque.
+
 ## 5.1 Notas de consulta (fase A de historia clínica)
 
 - `NotaConsulta`: texto libre del profesional sobre un paciente, atada a un turno `atendido` del mismo
