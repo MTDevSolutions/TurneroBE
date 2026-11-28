@@ -4,11 +4,12 @@ using Shared.Constantes;
 
 namespace Infrastructure.Data;
 
-/// <summary>Mensajes de WhatsApp: cola de salida (outbox) y respuestas de los pacientes.</summary>
+/// <summary>Mensajes de WhatsApp: cola de salida (outbox), respuestas de los pacientes y textos propios de cada cuenta.</summary>
 public partial class TurneroContext
 {
     public DbSet<MensajeWhatsapp> MensajesWhatsapp { get; set; } = null!;
     public DbSet<MensajeEntrante> MensajesEntrantes { get; set; } = null!;
+    public DbSet<PlantillaMensaje> PlantillasMensaje { get; set; } = null!;
 
     private static void ConfigurarWhatsapp(ModelBuilder modelBuilder)
     {
@@ -51,6 +52,19 @@ public partial class TurneroContext
                 .HasDatabaseName(CteIndices.MensajeEntranteGateway);
             entity.HasIndex(e => new { e.TenantId, e.TurnoId })
                 .HasDatabaseName("IX_MensajesEntrantes_TenantId_TurnoId");
+        });
+
+        modelBuilder.Entity<PlantillaMensaje>(entity =>
+        {
+            entity.Property(e => e.Clave).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.Texto).IsRequired().HasMaxLength(CtePlantillasMensaje.MaxLargoTexto);
+            entity.Property(e => e.ActualizadoEn).HasDefaultValueSql("now()");
+
+            entity.HasOne<Tenant>().WithMany().HasForeignKey(e => e.TenantId)
+                .OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_PlantillasMensaje_Tenants");
+
+            entity.HasIndex(e => new { e.TenantId, e.Clave }).IsUnique()
+                .HasDatabaseName(CteIndices.PlantillaMensajeClave);
         });
     }
 }

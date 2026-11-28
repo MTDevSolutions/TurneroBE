@@ -66,7 +66,8 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
   `PagoSuscripcion`, `Superadmin`.
 - Entidades de dominio: implementan `ITenantEntity` → global query filter por `TenantId` y
   autocompletado en los inserts. Hoy: `Sucursal` (= consultorio), `Usuario`, `Configuracion`,
-  `Paciente`, `Turno`, `MensajeWhatsapp`, `MensajeEntrante`, `NotaConsulta`, `NotaConsultaVersion`.
+  `Paciente`, `Turno`, `MensajeWhatsapp`, `MensajeEntrante`, `PlantillaMensaje`, `NotaConsulta`,
+  `NotaConsultaVersion`.
 - JWT de la cuenta lleva `tenant_id` + `rol`; el del superadmin no lleva `tenant_id`
   (`tipo_acceso=plataforma`). Policies `Tenant` y `Superadmin`.
 - `TenantSuspendidoMiddleware` → 403 `TENANT_SUSPENDIDO`.
@@ -111,7 +112,14 @@ Backend del SaaS multi-tenant de turnos para profesionales de la salud independi
   horario, cancelación del profesional). `RecordatoriosWorker` (cada minuto) encola el recordatorio a
   `HorasRecordatorio` del inicio (`Turno.RecordatorioEncoladoEn` evita duplicarlo).
   `EnvioWhatsappWorker` (cada 5 s) reclama con `FOR UPDATE SKIP LOCKED` + lease, reintenta con backoff
-  y descarta si la cuenta está suspendida, sin términos vigentes o sin teléfono. Textos en `TextosWhatsapp`.
+  y descarta si la cuenta está suspendida, sin términos vigentes o sin teléfono.
+- **Textos editables** (igual que CellFix): los de fábrica viven en `CtePlantillasMensaje` y en
+  `PlantillasMensaje` solo está lo que la cuenta reescribió (restablecer = borrar la fila). Variables
+  `{paciente}`, `{apellido}`, `{profesional}`, `{fecha}`, `{hora}`, `{lugar}` (`PlantillaMensajeRenderer`;
+  una desconocida da 400). Los que piden respuesta llevan un **pie fijo no editable** con el "Respondé SÍ/NO",
+  porque de eso depende el flujo. El recordatorio tiene dos textos (sin confirmar / ya confirmado).
+  Endpoints `GET /api/whatsapp/plantillas`, `PUT|DELETE /api/whatsapp/plantillas/{clave}` (solo `admin`) y
+  `POST /api/whatsapp/plantillas/vista-previa`. Se arman en `TextosWhatsapp.Armar`; lo ya encolado no cambia.
 - **Entrada:** el webhook valida `X-Webhook-Secret`, deduplica por id del gateway
   (`UX_MensajesEntrantes_GatewayMensajeId`) y guarda todo en `MensajesEntrantes`. Se aplica al próximo
   turno vivo del paciente (por celular): Sí → confirmado; No → cancelado (`CanceladoPor = paciente`),

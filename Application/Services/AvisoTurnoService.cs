@@ -16,6 +16,7 @@ public class AvisoTurnoService(
     ITenantRepository tenants,
     IConfiguracionRepository configuracion,
     IMensajeWhatsappRepository mensajes,
+    IPlantillaMensajeRepository plantillas,
     TimeProvider reloj) : IAvisoTurnoService
 {
     private static readonly HashSet<string> TiposValidos =
@@ -41,12 +42,8 @@ public class AvisoTurnoService(
         var tenantId = tenantContext.TenantId ?? turno.TenantId;
         var profesional = (await tenants.WhatsappInfoAsync(tenantId, cancellationToken))?.Nombre ?? "tu profesional";
 
-        var texto = tipo switch
-        {
-            CteMensajesWhatsapp.TipoAviso => TextosWhatsapp.Aviso(turno, profesional),
-            CteMensajesWhatsapp.TipoReprogramado => TextosWhatsapp.Reprogramado(turno, profesional),
-            _ => TextosWhatsapp.Cancelado(turno, profesional),
-        };
+        // El tipo de los avisos de agenda coincide con la clave de su plantilla.
+        var texto = TextosWhatsapp.Armar(tipo, turno, profesional, await plantillas.TextosAsync(tenantId, cancellationToken));
 
         mensajes.Agregar(new MensajeWhatsapp
         {

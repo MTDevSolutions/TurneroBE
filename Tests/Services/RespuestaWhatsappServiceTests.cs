@@ -24,6 +24,7 @@ public class RespuestaWhatsappServiceTests
     private readonly MensajeEntranteRepositoryFake _entrantes = new();
     private readonly MensajeWhatsappRepositoryFake _salientes = new();
     private readonly UnitOfWorkFake _uow = new();
+    private readonly PlantillaMensajeRepositoryFake _plantillas = new();
     private readonly Tenant _cuenta;
     private readonly Turno _turno;
     private long _proximoId = 100;
@@ -47,7 +48,7 @@ public class RespuestaWhatsappServiceTests
 
     private RespuestaWhatsappService Servicio(string secreto = "s3cr3to") => new(
         Options.Create(new WhatsappGatewaySettings { WebhookSecret = secreto }),
-        _tenants, _datos, _entrantes, _salientes, _uow, new RelojFake(Ahora),
+        _tenants, _datos, _entrantes, _salientes, _plantillas, _uow, new RelojFake(Ahora),
         NullLogger<RespuestaWhatsappService>.Instance);
 
     private WebhookEntranteDto Mensaje(string texto, string etiqueta = "1", string numero = Celular, long? id = null) => new()
@@ -191,5 +192,17 @@ public class RespuestaWhatsappServiceTests
         var entrante = Assert.Single(_entrantes.Mensajes);
         Assert.Equal(CteRespuestasWhatsapp.PacienteDesconocido, entrante.Resultado);
         Assert.Equal(CteEstadosTurno.Pendiente, _turno.Estado);
+    }
+
+    [Fact]
+    public async Task La_respuesta_al_si_usa_el_texto_propio_de_la_cuenta()
+    {
+        _plantillas.Con(1, CtePlantillasMensaje.ConfirmacionRecibida, "¡Genial {paciente}! Nos vemos el {fecha}.");
+
+        await Servicio().ProcesarAsync(Mensaje("Sí"));
+
+        var respuesta = Assert.Single(_salientes.Mensajes);
+        Assert.Equal(CteMensajesWhatsapp.TipoConfirmacionRecibida, respuesta.Tipo);
+        Assert.StartsWith("¡Genial Ana! Nos vemos el ", respuesta.Texto);
     }
 }

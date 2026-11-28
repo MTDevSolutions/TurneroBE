@@ -22,4 +22,7 @@ public static class CteIndices
 
     /// <summary>Único: el gateway reintenta el webhook, y una misma respuesta no se procesa dos veces.</summary>
     public const string MensajeEntranteGateway = "UX_MensajesEntrantes_GatewayMensajeId";
+
+    /// <summary>Único (TenantId, Clave): una sola versión propia de cada mensaje por cuenta.</summary>
+    public const string PlantillaMensajeClave = "UX_PlantillasMensaje_TenantId_Clave";
 }

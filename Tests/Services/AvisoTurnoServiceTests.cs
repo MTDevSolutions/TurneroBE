@@ -11,13 +11,14 @@ public class AvisoTurnoServiceTests
 
     private readonly TenantRepositoryFake _tenants = new();
     private readonly MensajeWhatsappRepositoryFake _mensajes = new();
+    private readonly PlantillaMensajeRepositoryFake _plantillas = new();
     private readonly Configuracion _config = new() { AvisosWhatsappActivos = true, HorasRecordatorio = 24 };
 
     public AvisoTurnoServiceTests()
         => _tenants.Agregar(new Tenant { Id = 1, Nombre = "Lic. Laura Pérez", Especialidad = "psicologia", Estado = "activo" });
 
     private AvisoTurnoService Servicio() => new(
-        new TenantContextFake(1), _tenants, new ConfiguracionRepositoryFake(_config), _mensajes, new RelojFake(Ahora));
+        new TenantContextFake(1), _tenants, new ConfiguracionRepositoryFake(_config), _mensajes, _plantillas, new RelojFake(Ahora));
 
     private static Turno Turno(DateTime inicioUtc) => new()
     {
@@ -99,5 +100,19 @@ public class AvisoTurnoServiceTests
 
         Assert.Equal(CteMensajesWhatsapp.Descartado, viejo.Estado);
         Assert.Equal(CteMensajesWhatsapp.Pendiente, _mensajes.Mensajes.Last().Estado);
+    }
+
+    [Fact]
+    public async Task Usa_el_texto_propio_de_la_cuenta_y_conserva_el_pedido_de_respuesta()
+    {
+        _plantillas.Con(1, CtePlantillasMensaje.Aviso, "Hola {paciente}! Turno el {fecha} a las {hora} en {lugar}.")
+            .Con(2, CtePlantillasMensaje.Aviso, "Texto de otra cuenta");
+        var turno = Turno(new DateTime(2026, 12, 3, 18, 0, 0, DateTimeKind.Utc));
+
+        await Servicio().EncolarAsync(turno, CteMensajesWhatsapp.TipoAviso);
+
+        Assert.Equal(
+            $"Hola Ana! Turno el jueves 3/12 a las 15:00 en Consultorio Palermo (Gorriti 1234).\n\n{CtePlantillasMensaje.PiePedidoConfirmacion}",
+            Assert.Single(_mensajes.Mensajes).Texto);
     }
 }
