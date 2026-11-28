@@ -16,7 +16,9 @@ namespace Web.Controllers;
 [Route("api/webhooks/whatsapp")]
 [AllowAnonymous]
 [Tags("WhatsApp")]
-public class WhatsappWebhookController(IRespuestaWhatsappService respuestaService) : ControllerBase
+public class WhatsappWebhookController(
+    IRespuestaWhatsappService respuestaService,
+    IAvisoSesionWhatsappService avisoSesionService) : ControllerBase
 {
     private const string HeaderSecreto = "X-Webhook-Secret";
 
@@ -29,6 +31,20 @@ public class WhatsappWebhookController(IRespuestaWhatsappService respuestaServic
             return Unauthorized(BaseResponse<object>.Fail("Secreto de webhook inválido."));
 
         await respuestaService.ProcesarAsync(dto, cancellationToken);
+        return Ok(BaseResponse<object>.Ok(null!));
+    }
+
+    [HttpPost("sesion")]
+    [SwaggerOperation(Summary = "Cambio de sesión de WhatsApp (aviso del gateway)",
+        Description = "El gateway avisa que la sesión del número de una cuenta se cayó, se cerró o volvió. 401 si el secreto no coincide.")]
+    public async Task<ActionResult<BaseResponse<object>>> Sesion([FromBody] WebhookSesionDto dto, CancellationToken cancellationToken)
+    {
+        // Mismo secreto que las respuestas: el gateway usa uno por empresa para los avisos y Turnix
+        // lo configura igual que el de los entrantes.
+        if (!respuestaService.SecretoValido(Request.Headers[HeaderSecreto].ToString()))
+            return Unauthorized(BaseResponse<object>.Fail("Secreto de webhook inválido."));
+
+        await avisoSesionService.ProcesarAsync(dto, cancellationToken);
         return Ok(BaseResponse<object>.Ok(null!));
     }
 }

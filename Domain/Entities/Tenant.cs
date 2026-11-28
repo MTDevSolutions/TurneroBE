@@ -26,6 +26,16 @@ public class Tenant
     /// Null = el profesional todavía no vinculó su número.</summary>
     public int? WhatsappTelefonoId { get; set; }
 
+    /// <summary>Último estado de la sesión de WhatsApp que avisó el gateway (CteSesionWhatsapp).
+    /// Null = todavía no llegó ningún aviso para el teléfono actual.</summary>
+    public string? WhatsappEstadoSesion { get; set; }
+
+    /// <summary>Desde cuándo la sesión está en <see cref="WhatsappEstadoSesion"/> (UTC).</summary>
+    public DateTime? WhatsappEstadoDesde { get; set; }
+
+    /// <summary>Id del último aviso de sesión aplicado: uno con id menor llegó tarde y se ignora.</summary>
+    public long? WhatsappUltimoAvisoId { get; set; }
+
     /// <summary>Versión de los términos de uso que aceptó la cuenta. Null = todavía no aceptó.
     /// Si no coincide con <c>CteTerminos.VersionVigente</c>, la API pide aceptarlos de nuevo.</summary>
     public string? TerminosVersionAceptada { get; set; }

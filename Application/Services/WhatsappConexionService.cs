@@ -40,6 +40,26 @@ public class WhatsappConexionService(
         };
     }
 
+    public async Task<WhatsappAlertaDto> AlertaAsync(CancellationToken cancellationToken = default)
+    {
+        var tenantId = tenantContext.TenantId ?? throw AppException.RegistroNoExiste();
+        var tenant = await tenantRepository.GetByIdAsync(tenantId, cancellationToken);
+
+        // Sin teléfono no hay nada caído (la pantalla de configuración ya dice "sin configurar"), y
+        // sin aviso todavía no se sabe: en los dos casos no se muestra nada.
+        if (tenant?.WhatsappTelefonoId is null
+            || tenant.WhatsappEstadoSesion is null
+            || tenant.WhatsappEstadoSesion == CteSesionWhatsapp.Conectado)
+            return new WhatsappAlertaDto { Mostrar = false };
+
+        return new WhatsappAlertaDto
+        {
+            Mostrar = true,
+            Estado = tenant.WhatsappEstadoSesion,
+            Desde = tenant.WhatsappEstadoDesde,
+        };
+    }
+
     // Si el gateway no responde no es un error del request: la pantalla muestra "reconectando".
     private async Task<SesionWhatsapp> SesionAsync(CancellationToken ct)
     {
